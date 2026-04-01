@@ -1,0 +1,16 @@
+{
+  "name": "revenue-architecture-tools",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "framer-motion": "^10.16.0",
+    "recharts": "^2.8.0",
+    "lucide-react": "^0.300.0"
+  }
+}
