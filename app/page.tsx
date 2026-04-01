@@ -70,8 +70,9 @@ const defaultState = {
   testReallocation: 12,
   accountCount: 18,
   targetReadoutWeeks: 3,
-  benchmarkMode: "mid-market-agency",
+  benchmarkMode: "independent-agency-a",
   revenuePerConversion: 800,
+  ltv: 4800,
   currentBlendedROAS: 5.1,
   priorBlendedROAS: 6.0,
   top3RevenueConcentration: 46,
@@ -83,28 +84,43 @@ const defaultState = {
   revenueGovernanceScore: 58,
 };
 
-type BenchMode = "mid-market-agency" | "enterprise-agency" | "inside-sales-team";
+type BenchMode = "big-6-agency" | "independent-agency-a" | "independent-agency-b" | "inside-sales-team";
 type ScreenMode = "home" | "cac" | "fragility";
 
 const benchmarkPresets: Record<
   BenchMode,
   {
+    label: string;
+    description: string;
     captureCeiling: number;
     roasLow: number;
     roasHigh: number;
   }
 > = {
-  "mid-market-agency": {
+  "big-6-agency": {
+    label: "Big 6 Agency",
+    description: "Large holding-company agencies managing broad portfolios, layered teams, and more complex cross-account budget allocation decisions.",
+    captureCeiling: 62,
+    roasLow: 2.5,
+    roasHigh: 5.0,
+  },
+  "independent-agency-a": {
+    label: "Independent Agency A ($10M–$50M)",
+    description: "Scaled independent agencies with growing portfolio complexity, emerging manager layers, and a real need for durable revenue systems.",
     captureCeiling: 70,
     roasLow: 3.0,
     roasHigh: 6.0,
   },
-  "enterprise-agency": {
-    captureCeiling: 65,
-    roasLow: 2.5,
-    roasHigh: 5.5,
+  "independent-agency-b": {
+    label: "Independent Agency B (<$10M)",
+    description: "Smaller independents where founder judgment still shapes many decisions and portfolio governance is usually less formalized.",
+    captureCeiling: 75,
+    roasLow: 3.2,
+    roasHigh: 6.5,
   },
   "inside-sales-team": {
+    label: "Inside Sales Team",
+    description: "A platform or outsourced sales motion where the focus is not agency P&L itself, but how a sales team opens, diagnoses, and advances portfolio conversations with advertisers or agency partners.",
     captureCeiling: 75,
     roasLow: 2.8,
     roasHigh: 5.8,
@@ -224,9 +240,10 @@ function SelectInput({ value, onChange }: { value: string; onChange: (s: string)
         background: "#fff",
       }}
     >
-      <option value="mid-market-agency">Mid-market agency</option>
-      <option value="enterprise-agency">Enterprise agency</option>
-      <option value="inside-sales-team">Inside sales team</option>
+      <option value="big-6-agency">Big 6 Agency</option>
+      <option value="independent-agency-a">Independent Agency A ($10M–$50M)</option>
+      <option value="independent-agency-b">Independent Agency B (&lt;$10M)</option>
+      <option value="inside-sales-team">Inside Sales Team</option>
     </select>
   );
 }
@@ -248,8 +265,9 @@ export default function RevenueArchitectureTools() {
     const currentCAC = state.monthlySpend / Math.max(state.monthlyConversions, 1);
     const priorCAC = state.priorMonthlySpend / Math.max(state.priorMonthlyConversions, 1);
     const cacChange = ((currentCAC - priorCAC) / Math.max(priorCAC, 1)) * 100;
-    const spendChange = ((state.monthlySpend - state.priorMonthlySpend) / Math.max(state.priorMonthlySpend, 1)) * 100;
     const roasChange = ((state.currentBlendedROAS - state.priorBlendedROAS) / Math.max(state.priorBlendedROAS, 0.01)) * 100;
+    const currentLtvToCac = state.ltv / Math.max(currentCAC, 1);
+    const priorLtvToCac = state.ltv / Math.max(priorCAC, 1);
 
     const preset = benchmarkPresets[state.benchmarkMode as BenchMode];
 
@@ -269,7 +287,6 @@ export default function RevenueArchitectureTools() {
     const modeledConversions = state.monthlySpend / modeledNewCAC;
     const incrementalConversions = modeledConversions - state.monthlyConversions;
     const projectedRevenueLift = incrementalConversions * state.revenuePerConversion;
-    const currentRevenue = state.monthlyConversions * state.revenuePerConversion;
     const modeledRevenue = modeledConversions * state.revenuePerConversion;
     const modeledBlendedROAS = modeledRevenue / Math.max(state.monthlySpend, 1);
 
@@ -294,16 +311,16 @@ export default function RevenueArchitectureTools() {
         icon: TrendingUp,
       },
       {
+        title: "LTV:CAC",
+        value: `${currentLtvToCac.toFixed(1)}:1`,
+        sub: `LTV ${formatMoney(state.ltv)} | prior ${priorLtvToCac.toFixed(1)}:1`,
+        icon: Layers3,
+      },
+      {
         title: "Projected revenue lift",
         value: formatMoney(projectedRevenueLift),
         sub: `${Math.round(incrementalConversions)} incremental conversions modeled`,
         icon: Activity,
-      },
-      {
-        title: "System Diagnosis",
-        value: diagnosis,
-        sub: `${Math.round(saturationRisk)}/100 portfolio pressure signal`,
-        icon: AlertTriangle,
       },
     ];
 
@@ -353,17 +370,16 @@ export default function RevenueArchitectureTools() {
     return {
       currentCAC,
       priorCAC,
+      currentLtvToCac,
+      priorLtvToCac,
       cards,
       diagnosis,
       suggestedShift,
-      modeledCACImprovementPct,
-      incrementalConversions,
       projectedRevenueLift,
       modeledBlendedROAS,
       narrative,
       trendData,
       mixData,
-      benchmark: preset,
       fragilityScore,
       fragilityBand,
       fragilityPillars,
@@ -466,6 +482,9 @@ export default function RevenueArchitectureTools() {
                     <Field label="Benchmark mode"><SelectInput value={state.benchmarkMode} onChange={(v) => update("benchmarkMode", v)} /></Field>
                     <Field label="Accounts in portfolio"><NumberInput value={state.accountCount} onChange={(v) => update("accountCount", v)} /></Field>
                   </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: "#475569", background: "#f8fafc", borderRadius: 14, padding: 12 }}>
+                    <strong>{benchmarkPresets[state.benchmarkMode as BenchMode].label}:</strong> {benchmarkPresets[state.benchmarkMode as BenchMode].description}
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <Field label="Current monthly spend"><NumberInput value={state.monthlySpend} onChange={(v) => update("monthlySpend", v)} /></Field>
                     <Field label="Current monthly conversions"><NumberInput value={state.monthlyConversions} onChange={(v) => update("monthlyConversions", v)} /></Field>
@@ -480,7 +499,10 @@ export default function RevenueArchitectureTools() {
                   </div>
                   <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 18, display: "grid", gap: 16 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>Portfolio value inputs</div>
-                    <Field label="Revenue per conversion ($)"><NumberInput value={state.revenuePerConversion} onChange={(v) => update("revenuePerConversion", v)} /></Field>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <Field label="Revenue per conversion ($)"><NumberInput value={state.revenuePerConversion} onChange={(v) => update("revenuePerConversion", v)} /></Field>
+                      <Field label="LTV ($)"><NumberInput value={state.ltv} onChange={(v) => update("ltv", v)} /></Field>
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       <Field label="Current blended ROAS"><NumberInput value={state.currentBlendedROAS} onChange={(v) => update("currentBlendedROAS", v)} step={0.1} /></Field>
                       <Field label="Prior blended ROAS"><NumberInput value={state.priorBlendedROAS} onChange={(v) => update("priorBlendedROAS", v)} step={0.1} /></Field>
@@ -520,17 +542,18 @@ export default function RevenueArchitectureTools() {
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Recommended shift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.suggestedShift}%</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>From saturated capture into discovery</div></div>
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Projected revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled from revenue per conversion</div></div>
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x from {state.currentBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled blended ROAS vs current input</div></div>
+                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.currentLtvToCac.toFixed(1)}:1 from {analysis.priorLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Current unit economics vs prior period</div></div>
                       </div>
                       <div style={{ marginTop: 20, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
                         <div style={{ fontWeight: 600, marginBottom: 8 }}>Talk track</div>
-                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Right now, the issue looks less like pure channel performance and more like a portfolio-efficiency problem. We would run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, projected revenue lift, and blended ROAS before scaling.</p>
+                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Right now, the issue looks less like pure channel performance and more like a portfolio-efficiency problem. We would run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, projected revenue lift, LTV:CAC, and blended ROAS before scaling.</p>
                       </div>
                     </div>
 
                     <div style={{ background: "#f1f5f9", borderRadius: 24, padding: 20 }}>
                       <div style={{ fontWeight: 600, marginBottom: 14 }}>Suggested next step</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 14, color: "#334155" }}>
-                        {["Choose one account or cohort where CAC is drifting.", "Run a controlled reallocation with spend held flat.", "Measure CAC, projected revenue lift, and blended ROAS."].map((t) => (
+                        {["Choose one account or cohort where CAC is drifting.", "Run a controlled reallocation with spend held flat.", "Measure CAC, projected revenue lift, blended ROAS, and LTV:CAC."].map((t) => (
                           <div key={t} style={{ display: "flex", gap: 10 }}><ArrowRight size={16} style={{ marginTop: 2, flex: "0 0 auto" }} /><span>{t}</span></div>
                         ))}
                       </div>
