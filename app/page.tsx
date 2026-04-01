@@ -28,6 +28,8 @@ import {
   PlayCircle,
   SearchCheck,
   Sparkles,
+  Copy,
+  Check,
 } from "lucide-react";
 
 function clamp(n: number, min: number, max: number) {
@@ -250,6 +252,7 @@ function SelectInput({ value, onChange }: { value: string; onChange: (s: string)
 
 export default function RevenueArchitectureTools() {
   const [state, setState] = useState(defaultState);
+  const [copied, setCopied] = useState(false);
 
   const update = (key: keyof typeof defaultState, value: string | number) => {
     setState((prev) => ({ ...prev, [key]: value as never }));
@@ -257,9 +260,13 @@ export default function RevenueArchitectureTools() {
 
   const setScreen = (screen: ScreenMode) => {
     setState((prev) => ({ ...prev, screen }));
+    setCopied(false);
   };
 
-  const reset = () => setState(defaultState);
+  const reset = () => {
+    setState(defaultState);
+    setCopied(false);
+  };
 
   const analysis = useMemo(() => {
     const currentCAC = state.monthlySpend / Math.max(state.monthlyConversions, 1);
@@ -289,6 +296,8 @@ export default function RevenueArchitectureTools() {
     const projectedRevenueLift = incrementalConversions * state.revenuePerConversion;
     const modeledRevenue = modeledConversions * state.revenuePerConversion;
     const modeledBlendedROAS = modeledRevenue / Math.max(state.monthlySpend, 1);
+    const modeledLtv = state.ltv * (1 + modeledCACImprovementPct / 100 * 0.35);
+    const modeledLtvToCac = modeledLtv / Math.max(modeledNewCAC, 1);
 
     const narrative =
       diagnosis === "Allocation-Led CAC Creep"
@@ -372,6 +381,9 @@ export default function RevenueArchitectureTools() {
       priorCAC,
       currentLtvToCac,
       priorLtvToCac,
+      modeledLtv,
+      modeledNewCAC,
+      modeledLtvToCac,
       cards,
       diagnosis,
       suggestedShift,
@@ -387,6 +399,17 @@ export default function RevenueArchitectureTools() {
       forecastScore,
     };
   }, [state]);
+
+  const copySummary = async () => {
+    const summary = `Portfolio summary for ${state.company}: CAC moved from ${formatMoney(analysis.priorCAC)} to ${formatMoney(analysis.currentCAC)}. Current blended ROAS is ${state.currentBlendedROAS.toFixed(2)}x versus prior ${state.priorBlendedROAS.toFixed(2)}x. Current LTV:CAC is ${analysis.currentLtvToCac.toFixed(1)}:1. A controlled ${analysis.suggestedShift}% reallocation from capture into discovery could model approximately ${formatMoney(analysis.projectedRevenueLift)} in revenue lift, with blended ROAS moving to ${analysis.modeledBlendedROAS.toFixed(2)}x, CAC moving to ${formatMoney(analysis.modeledNewCAC)}, and LTV:CAC moving to ${analysis.modeledLtvToCac.toFixed(1)}:1.`;
+    try {
+      await navigator.clipboard.writeText(summary);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   const sectionTitleStyle: React.CSSProperties = {
     fontSize: 28,
@@ -531,7 +554,10 @@ export default function RevenueArchitectureTools() {
                 <Card>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                     <div><h3 style={{ margin: 0 }}>Rep summary</h3><p style={{ marginTop: 6, color: "#64748b" }}>Use this live to reframe the conversation and propose a next step.</p></div>
-                    <Badge>{analysis.diagnosis}</Badge>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                      <Badge>{analysis.diagnosis}</Badge>
+                      <Button onClick={copySummary} outline>{copied ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><Copy size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy summary</>}</Button>
+                    </div>
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1.25fr) minmax(260px, 0.95fr)", gap: 24, marginTop: 20 }}>
@@ -543,6 +569,9 @@ export default function RevenueArchitectureTools() {
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Projected revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled from revenue per conversion</div></div>
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x from {state.currentBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled blended ROAS vs current input</div></div>
                         <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.currentLtvToCac.toFixed(1)}:1 from {analysis.priorLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Current unit economics vs prior period</div></div>
+                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled LTV</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{formatMoney(analysis.modeledLtv)} from {formatMoney(state.ltv)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Illustrative lift to long-term value</div></div>
+                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{formatMoney(analysis.modeledNewCAC)} from {formatMoney(analysis.currentCAC)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Expected acquisition efficiency after test</div></div>
+                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled LTV:CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.modeledLtvToCac.toFixed(1)}:1 from {analysis.currentLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Illustrative unit-economics improvement</div></div>
                       </div>
                       <div style={{ marginTop: 20, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
                         <div style={{ fontWeight: 600, marginBottom: 8 }}>Talk track</div>
@@ -578,7 +607,7 @@ export default function RevenueArchitectureTools() {
                     <h3 style={{ marginTop: 0 }}>Mix shift view</h3>
                     <p style={{ color: "#64748b" }}>Current portfolio mix vs modeled test mix</p>
                     <div style={{ width: "100%", height: 320 }}>
-                      <ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.mixData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="capture" stackId="a" /><Bar dataKey="discovery" stackId="a" /></BarChart></ResponsiveContainer>
+                      <ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.mixData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="capture" stackId="a" fill="#0f172a" /><Bar dataKey="discovery" stackId="a" fill="#94a3b8" /></BarChart></ResponsiveContainer>
                     </div>
                   </Card>
                 </div>
