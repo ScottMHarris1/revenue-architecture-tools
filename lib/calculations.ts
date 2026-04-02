@@ -36,6 +36,5 @@ export function calculateScenario({
     lift,
     roas,
     ltvToCac,
-    newConversions,
   };
 }
