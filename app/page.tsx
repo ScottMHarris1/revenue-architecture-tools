@@ -6,7 +6,12 @@ import MetricCard from "../components/MetricCard";
 import ActionButton from "../components/ActionButton";
 import ComparisonTable from "../components/ComparisonTable";
 import SimpleBar from "../components/SimpleBar";
-import { calculateScenario } from "../lib/calculations";
+import {
+  BenchmarkMode,
+  benchmarkDescriptions,
+  benchmarkLabels,
+  calculateScenario,
+} from "../lib/calculations";
 import { formatMoney, formatROAS, formatRatio } from "../lib/format";
 
 export default function Page() {
@@ -19,6 +24,7 @@ export default function Page() {
 
   const [shiftA, setShiftA] = useState(12);
   const [shiftB, setShiftB] = useState(18);
+  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("independentA");
 
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedClient, setCopiedClient] = useState(false);
@@ -33,8 +39,18 @@ export default function Page() {
         revenuePerConversion: revPerConv,
         ltv,
         shift: shiftA,
+        benchmarkMode,
       }),
-    [spend, conversions, priorSpend, priorConversions, revPerConv, ltv, shiftA]
+    [
+      spend,
+      conversions,
+      priorSpend,
+      priorConversions,
+      revPerConv,
+      ltv,
+      shiftA,
+      benchmarkMode,
+    ]
   );
 
   const B = useMemo(
@@ -47,11 +63,23 @@ export default function Page() {
         revenuePerConversion: revPerConv,
         ltv,
         shift: shiftB,
+        benchmarkMode,
       }),
-    [spend, conversions, priorSpend, priorConversions, revPerConv, ltv, shiftB]
+    [
+      spend,
+      conversions,
+      priorSpend,
+      priorConversions,
+      revPerConv,
+      ltv,
+      shiftB,
+      benchmarkMode,
+    ]
   );
 
-  const repSummary = `CAC has moved from ${formatMoney(A.priorCAC)} to ${formatMoney(
+  const repSummary = `Benchmark: ${
+    benchmarkLabels[benchmarkMode]
+  }. CAC has moved from ${formatMoney(A.priorCAC)} to ${formatMoney(
     A.currentCAC
   )}. A controlled ${shiftA}-${shiftB}% reallocation could generate ${formatMoney(
     A.lift
@@ -62,6 +90,9 @@ export default function Page() {
   )} LTV:CAC.`;
 
   const clientExport = `Portfolio Efficiency Brief
+
+Benchmark mode
+- ${benchmarkLabels[benchmarkMode]}
 
 Current state
 - CAC: ${formatMoney(A.priorCAC)} → ${formatMoney(A.currentCAC)}
@@ -112,6 +143,30 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
 
       <Card>
         <h3 style={{ marginTop: 0 }}>Inputs</h3>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", marginBottom: 6 }}>Benchmark Mode</label>
+          <select
+            value={benchmarkMode}
+            onChange={(e) => setBenchmarkMode(e.target.value as BenchmarkMode)}
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 10,
+              border: "1px solid #cbd5e1",
+              background: "#fff",
+            }}
+          >
+            {Object.entries(benchmarkLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <div style={{ marginTop: 8, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+            {benchmarkDescriptions[benchmarkMode]}
+          </div>
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <input value={spend} onChange={(e) => setSpend(Number(e.target.value))} />
