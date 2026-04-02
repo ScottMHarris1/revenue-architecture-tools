@@ -65,6 +65,26 @@ const liveState: FormState = {
 
 type Mode = "demo" | "live";
 
+function RecommendationBadge({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "6px 10px",
+        borderRadius: 999,
+        background: "#dcfce7",
+        color: "#166534",
+        fontSize: 12,
+        fontWeight: 700,
+        border: "1px solid #bbf7d0",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function Page() {
   const [mode, setMode] = useState<Mode>("demo");
   const [form, setForm] = useState<FormState>(demoState);
@@ -127,6 +147,20 @@ export default function Page() {
   const safeClientName = form.clientName || "Unnamed Client";
   const safeAccountName = form.accountName || "Unnamed Account";
 
+  const recommendedScenario =
+    A.lift > B.lift
+      ? "primary"
+      : B.lift > A.lift
+        ? "alternative"
+        : A.newCAC <= B.newCAC
+          ? "primary"
+          : "alternative";
+
+  const recommendedLabel =
+    recommendedScenario === "primary"
+      ? `Recommended: ${form.shiftA}% shift`
+      : `Recommended: ${form.shiftB}% shift`;
+
   const repSummary = `Client: ${safeClientName}. Account: ${safeAccountName}. Benchmark: ${
     benchmarkLabels[form.benchmarkMode]
   }. Current mix is ${form.captureMix}% capture / ${form.discoveryMix}% discovery. CAC has moved from ${formatMoney(
@@ -135,9 +169,9 @@ export default function Page() {
     A.currentCAC
   )}. A controlled ${form.shiftA}-${form.shiftB}% reallocation could generate ${formatMoney(
     A.lift
-  )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. Primary scenario lands at ${formatMoney(
-    A.newCAC
-  )} CAC, ${formatROAS(A.roas)} ROAS, and ${formatRatio(A.ltvToCac)} LTV:CAC.`;
+  )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. ${
+    recommendedScenario === "primary" ? "Primary" : "Alternative"
+  } scenario currently looks stronger.`;
 
   const clientExport = `Portfolio Efficiency Brief
 
@@ -173,8 +207,13 @@ Alternative scenario (${form.shiftB}% shift)
 - LTV:CAC: ${formatRatio(B.ltvToCac)}
 - Modeled revenue lift: ${formatMoney(B.lift)}
 
+Recommended scenario
+- ${recommendedScenario === "primary" ? `Primary (${form.shiftA}% shift)` : `Alternative (${form.shiftB}% shift)`}
+
 Recommended next step
-Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
+Run a controlled ${
+    recommendedScenario === "primary" ? form.shiftA : form.shiftB
+  }% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
 
   async function handleCopySummary() {
     await navigator.clipboard.writeText(repSummary);
@@ -249,7 +288,7 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
       <div className="print-page">
         <div className="no-print">
           <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V7)
+            CAC Creep Calculator (V8)
           </h1>
 
           <Card>
@@ -483,10 +522,22 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
               </div>
             </div>
 
-            <p style={{ marginTop: 14 }}>
-              Client: <strong>{safeClientName}</strong> | Account:{" "}
-              <strong>{safeAccountName}</strong>
-            </p>
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                Client: <strong>{safeClientName}</strong> | Account:{" "}
+                <strong>{safeAccountName}</strong>
+              </p>
+              <RecommendationBadge label={recommendedLabel} />
+            </div>
+
             <p style={{ marginTop: 8 }}>
               CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
             </p>
@@ -527,16 +578,60 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
               marginTop: 20,
             }}
           >
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Primary Scenario ({form.shiftA}%)</h3>
+            <Card
+              style={{
+                border:
+                  recommendedScenario === "primary"
+                    ? "2px solid #22c55e"
+                    : "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 0 }}>
+                  Primary Scenario ({form.shiftA}%)
+                </h3>
+                {recommendedScenario === "primary" ? (
+                  <RecommendationBadge label="Recommended" />
+                ) : null}
+              </div>
               <p>CAC: {formatMoney(A.newCAC)}</p>
               <p>ROAS: {formatROAS(A.roas)}</p>
               <p>LTV:CAC: {formatRatio(A.ltvToCac)}</p>
               <p>Modeled lift: {formatMoney(A.lift)}</p>
             </Card>
 
-            <Card>
-              <h3 style={{ marginTop: 0 }}>Alternative Scenario ({form.shiftB}%)</h3>
+            <Card
+              style={{
+                border:
+                  recommendedScenario === "alternative"
+                    ? "2px solid #22c55e"
+                    : "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <h3 style={{ marginTop: 0, marginBottom: 0 }}>
+                  Alternative Scenario ({form.shiftB}%)
+                </h3>
+                {recommendedScenario === "alternative" ? (
+                  <RecommendationBadge label="Recommended" />
+                ) : null}
+              </div>
               <p>CAC: {formatMoney(B.newCAC)}</p>
               <p>ROAS: {formatROAS(B.roas)}</p>
               <p>LTV:CAC: {formatRatio(B.ltvToCac)}</p>
@@ -545,7 +640,18 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
           </div>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Scenario Comparison</h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Scenario Comparison</h3>
+              <RecommendationBadge label={recommendedLabel} />
+            </div>
             <ComparisonTable
               primary={{
                 shift: form.shiftA,
@@ -594,7 +700,18 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
           </div>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Decision View</h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Decision View</h3>
+              <RecommendationBadge label={recommendedLabel} />
+            </div>
             <p>
               {form.shiftA}% shift → {formatMoney(A.lift)} | {form.shiftB}% shift →{" "}
               {formatMoney(B.lift)}
@@ -649,13 +766,10 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
               }}
             >
               <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>
-                Current Mix
+                Recommended Scenario
               </div>
-              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 700 }}>
-                {form.captureMix}% / {form.discoveryMix}%
-              </div>
-              <div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>
-                Capture / Discovery
+              <div style={{ marginTop: 8 }}>
+                <RecommendationBadge label={recommendedLabel} />
               </div>
             </div>
           </div>
@@ -733,9 +847,10 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
             >
               <h3 style={{ marginTop: 0 }}>Recommendation</h3>
               <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#334155" }}>
-                Run a controlled {form.shiftA}% to {form.shiftB}% reallocation from capture into
-                discovery, hold spend flat, and inspect CAC, blended efficiency, and modeled
-                revenue lift before scaling.
+                Run a controlled{" "}
+                {recommendedScenario === "primary" ? form.shiftA : form.shiftB}% reallocation from
+                capture into discovery, hold spend flat, and inspect CAC, blended efficiency, and
+                modeled revenue lift before scaling.
               </p>
             </div>
 
@@ -776,7 +891,18 @@ Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spen
         </Card>
 
         <Card className="no-print" style={{ marginTop: 20 }}>
-          <h3 style={{ marginTop: 0 }}>Portfolio Efficiency Brief</h3>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 0 }}>Portfolio Efficiency Brief</h3>
+            <RecommendationBadge label={recommendedLabel} />
+          </div>
           <div
             style={{
               whiteSpace: "pre-wrap",
