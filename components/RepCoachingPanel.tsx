@@ -26,7 +26,7 @@ export default function RepCoachingPanel({
         style={{
           background: "#ffffff",
           border: "1px solid #e2e8f0",
-          borderRadius: 16,
+          borderRadius: 18,
           padding: 16,
         }}
       >
@@ -48,7 +48,7 @@ export default function RepCoachingPanel({
         style={{
           background: "#ffffff",
           border: "1px solid #e2e8f0",
-          borderRadius: 16,
+          borderRadius: 18,
           padding: 16,
         }}
       >
@@ -78,7 +78,7 @@ export default function RepCoachingPanel({
               <div
                 style={{
                   fontSize: 13,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   color: "#0f172a",
                   marginBottom: 6,
                 }}
