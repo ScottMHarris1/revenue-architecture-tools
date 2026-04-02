@@ -30,6 +30,8 @@ import {
   Sparkles,
   Copy,
   Check,
+  FileText,
+  Printer,
 } from "lucide-react";
 
 function clamp(n: number, min: number, max: number) {
@@ -253,6 +255,7 @@ function SelectInput({ value, onChange }: { value: string; onChange: (s: string)
 export default function RevenueArchitectureTools() {
   const [state, setState] = useState(defaultState);
   const [copied, setCopied] = useState(false);
+  const [copiedClient, setCopiedClient] = useState(false);
 
   const update = (key: keyof typeof defaultState, value: string | number) => {
     setState((prev) => ({ ...prev, [key]: value as never }));
@@ -261,11 +264,13 @@ export default function RevenueArchitectureTools() {
   const setScreen = (screen: ScreenMode) => {
     setState((prev) => ({ ...prev, screen }));
     setCopied(false);
+    setCopiedClient(false);
   };
 
   const reset = () => {
     setState(defaultState);
     setCopied(false);
+    setCopiedClient(false);
   };
 
   const analysis = useMemo(() => {
@@ -376,6 +381,24 @@ export default function RevenueArchitectureTools() {
           ? "The system is growing, but durability is not fully proven. This is a strong post-test expansion zone: enough traction to care, enough fragility to act."
           : "The revenue system appears comparatively durable. The strongest next move here is benchmarked insight and scenario planning rather than urgent remediation.";
 
+    const clientExport = `${state.company}
+
+Portfolio Snapshot
+- Benchmark mode: ${benchmarkPresets[state.benchmarkMode as BenchMode].label}
+- CAC: ${formatMoney(currentCAC)} (from ${formatMoney(priorCAC)})
+- Blended ROAS: ${state.currentBlendedROAS.toFixed(2)}x (from ${state.priorBlendedROAS.toFixed(2)}x)
+- LTV:CAC: ${currentLtvToCac.toFixed(1)}:1 (from ${priorLtvToCac.toFixed(1)}:1)
+
+Modeled Test Outcome
+- Recommended shift: ${suggestedShift}% from capture into discovery
+- Modeled CAC: ${formatMoney(modeledNewCAC)}
+- Modeled blended ROAS: ${modeledBlendedROAS.toFixed(2)}x
+- Modeled LTV:CAC: ${modeledLtvToCac.toFixed(1)}:1
+- Projected revenue lift: ${formatMoney(projectedRevenueLift)}
+
+Recommended Next Step
+Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.`;
+
     return {
       currentCAC,
       priorCAC,
@@ -397,6 +420,7 @@ export default function RevenueArchitectureTools() {
       fragilityPillars,
       fragilityNarrative,
       forecastScore,
+      clientExport,
     };
   }, [state]);
 
@@ -411,6 +435,20 @@ export default function RevenueArchitectureTools() {
     }
   };
 
+  const copyClientExport = async () => {
+    try {
+      await navigator.clipboard.writeText(analysis.clientExport);
+      setCopiedClient(true);
+      window.setTimeout(() => setCopiedClient(false), 1800);
+    } catch {
+      setCopiedClient(false);
+    }
+  };
+
+  const printOnePager = () => {
+    window.print();
+  };
+
   const sectionTitleStyle: React.CSSProperties = {
     fontSize: 28,
     fontWeight: 700,
@@ -420,7 +458,22 @@ export default function RevenueArchitectureTools() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc", color: "#0f172a" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
+      <style>{`
+        @media print {
+          body { background: white !important; }
+          .no-print { display: none !important; }
+          .print-card {
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+            break-inside: avoid;
+          }
+          .print-page {
+            max-width: 100% !important;
+            padding: 0 !important;
+          }
+        }
+      `}</style>
+      <div className="print-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
         {state.screen === "home" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <Card>
@@ -484,7 +537,7 @@ export default function RevenueArchitectureTools() {
           </div>
         ) : state.screen === "cac" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+            <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}><Badge>Agency Revenue System Tools</Badge><Badge outline>Open conversation</Badge></div>
                 <h1 style={{ fontSize: 40, margin: 0, fontWeight: 700 }}>CAC Creep Calculator</h1>
@@ -492,6 +545,7 @@ export default function RevenueArchitectureTools() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <Button onClick={() => setScreen("home")} outline><ChevronLeft size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Back to workflow</Button>
                 <Button onClick={reset} outline><RefreshCcw size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Reset</Button>
+                <Button onClick={printOnePager} outline><Printer size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Print one-pager</Button>
               </div>
             </div>
 
@@ -551,51 +605,53 @@ export default function RevenueArchitectureTools() {
                   })}
                 </div>
 
-                <Card>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                <Card className="print-card">
+                  <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                     <div><h3 style={{ margin: 0 }}>Rep summary</h3><p style={{ marginTop: 6, color: "#64748b" }}>Use this live to reframe the conversation and propose a next step.</p></div>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                       <Badge>{analysis.diagnosis}</Badge>
                       <Button onClick={copySummary} outline>{copied ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><Copy size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy summary</>}</Button>
                     </div>
                   </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1.25fr) minmax(260px, 0.95fr)", gap: 24, marginTop: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                     <div>
-                      <p style={{ fontSize: 16, lineHeight: 1.8, color: "#334155" }}>{analysis.narrative}</p>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginTop: 20 }}>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>CAC movement</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{formatMoney(analysis.currentCAC)} from {formatMoney(analysis.priorCAC)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Current CAC vs prior period CAC</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Recommended shift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.suggestedShift}%</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>From saturated capture into discovery</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Projected revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled from revenue per conversion</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x from {state.currentBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Modeled blended ROAS vs current input</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.currentLtvToCac.toFixed(1)}:1 from {analysis.priorLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Current unit economics vs prior period</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled LTV</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{formatMoney(analysis.modeledLtv)} from {formatMoney(state.ltv)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Illustrative lift to long-term value</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{formatMoney(analysis.modeledNewCAC)} from {formatMoney(analysis.currentCAC)}</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Expected acquisition efficiency after test</div></div>
-                        <div style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Modeled LTV:CAC</div><div style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{analysis.modeledLtvToCac.toFixed(1)}:1 from {analysis.currentLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>Illustrative unit-economics improvement</div></div>
-                      </div>
-                      <div style={{ marginTop: 20, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>Talk track</div>
-                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Right now, the issue looks less like pure channel performance and more like a portfolio-efficiency problem. We would run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, projected revenue lift, LTV:CAC, and blended ROAS before scaling.</p>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", letterSpacing: 0.8 }}>Client one-pager</div>
+                      <h2 style={{ margin: "6px 0 0 0", fontSize: 30 }}>Portfolio Efficiency Snapshot</h2>
+                      <div style={{ marginTop: 6, color: "#475569" }}>{state.company} • {benchmarkPresets[state.benchmarkMode as BenchMode].label}</div>
+                    </div>
+                    <Badge>{analysis.diagnosis}</Badge>
+                  </div>
+
+                  <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 12 }}>
+                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.currentCAC)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {formatMoney(analysis.priorCAC)}</div></div>
+                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {state.currentBlendedROAS.toFixed(2)}x</div></div>
+                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {analysis.currentLtvToCac.toFixed(1)}:1</div></div>
+                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>modeled outcome</div></div>
+                  </div>
+
+                  <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 20 }}>
+                    <div>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>Interpretation</div>
+                      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: "#334155" }}>{analysis.narrative}</p>
+                      <div style={{ marginTop: 18, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 8 }}>Recommended next step</div>
+                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and measure blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.</p>
                       </div>
                     </div>
-
-                    <div style={{ background: "#f1f5f9", borderRadius: 24, padding: 20 }}>
-                      <div style={{ fontWeight: 600, marginBottom: 14 }}>Suggested next step</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 14, color: "#334155" }}>
-                        {["Choose one account or cohort where CAC is drifting.", "Run a controlled reallocation with spend held flat.", "Measure CAC, projected revenue lift, blended ROAS, and LTV:CAC."].map((t) => (
-                          <div key={t} style={{ display: "flex", gap: 10 }}><ArrowRight size={16} style={{ marginTop: 2, flex: "0 0 auto" }} /><span>{t}</span></div>
-                        ))}
-                      </div>
-                      <div style={{ marginTop: 20, background: "#fff", borderRadius: 18, padding: 16 }}>
-                        <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>When to use the second tool</div>
-                        <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.7, color: "#334155" }}>Once the client engages on the test or shows deeper interest, move to the Revenue Fragility Diagnostic to expand the relationship beyond channel mix.</div>
-                        <div style={{ marginTop: 16 }}><Button onClick={() => setScreen("fragility")}>Continue to structural diagnosis</Button></div>
+                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 10 }}>Modeled outcomes</div>
+                      <div style={{ display: "grid", gap: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled CAC</span><strong>{formatMoney(analysis.modeledNewCAC)}</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV</span><strong>{formatMoney(analysis.modeledLtv)}</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled blended ROAS</span><strong>{analysis.modeledBlendedROAS.toFixed(2)}x</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV:CAC</span><strong>{analysis.modeledLtvToCac.toFixed(1)}:1</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Recommended shift</span><strong>{analysis.suggestedShift}%</strong></div>
                       </div>
                     </div>
                   </div>
                 </Card>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
+                <div className="no-print" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
                   <Card>
                     <h3 style={{ marginTop: 0 }}>CAC trend and modeled readout</h3>
                     <p style={{ color: "#64748b" }}>Prior vs current vs test scenario</p>
@@ -611,6 +667,19 @@ export default function RevenueArchitectureTools() {
                     </div>
                   </Card>
                 </div>
+
+                <Card className="no-print">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <div>
+                      <h3 style={{ margin: 0 }}>Client-facing export</h3>
+                      <p style={{ marginTop: 6, color: "#64748b" }}>Use this for a clean follow-up email or recap note after the conversation.</p>
+                    </div>
+                    <Button onClick={copyClientExport} outline>{copiedClient ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><FileText size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy client export</>}</Button>
+                  </div>
+                  <div style={{ marginTop: 16, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16, background: "#f8fafc", whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.7, color: "#334155" }}>
+                    {analysis.clientExport}
+                  </div>
+                </Card>
               </div>
             </div>
           </div>
