@@ -21,17 +21,18 @@ export default function ComparisonTable({
     textAlign: "left",
     fontSize: 12,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     color: "#64748b",
-    padding: "10px 12px",
+    padding: "12px 14px",
     borderBottom: "1px solid #e2e8f0",
   };
 
   const tdStyle: React.CSSProperties = {
-    padding: "12px",
+    padding: "14px",
     borderBottom: "1px solid #e2e8f0",
     color: "#0f172a",
     fontSize: 14,
+    verticalAlign: "top",
   };
 
   return (
@@ -39,8 +40,8 @@ export default function ComparisonTable({
       style={{
         overflowX: "auto",
         border: "1px solid #e2e8f0",
-        borderRadius: 14,
-        background: "#fff",
+        borderRadius: 16,
+        background: "#ffffff",
       }}
     >
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
