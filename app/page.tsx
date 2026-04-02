@@ -171,6 +171,14 @@ export default function Page() {
           B.newCAC
         )} modeled CAC, and ${formatRatio(B.ltvToCac)} modeled LTV:CAC.`;
 
+  const recommendedShift = recommendedScenario === "primary" ? form.shiftA : form.shiftB;
+
+  const opener = `Based on what you're seeing, how has blended CAC moved as spend has scaled, especially with the portfolio currently weighted ${form.captureMix}% toward capture?`;
+
+  const reframe = `The issue may not be whether individual lower-funnel channels are still working. It may be that the portfolio is over-indexed on capture, which can keep last-click metrics looking healthy while blended CAC becomes less efficient.`;
+
+  const nextStep = `A practical next step would be a controlled ${recommendedShift}% reallocation from capture into discovery, holding spend flat and measuring CAC, blended efficiency, and modeled revenue lift before deciding whether to scale.`;
+
   const repSummary = `Client: ${safeClientName}. Account: ${safeAccountName}. Benchmark: ${
     benchmarkLabels[form.benchmarkMode]
   }. Current mix is ${form.captureMix}% capture / ${form.discoveryMix}% discovery. CAC has moved from ${formatMoney(
@@ -224,9 +232,7 @@ Why this is recommended
 - ${recommendedReason}
 
 Recommended next step
-Run a controlled ${
-    recommendedScenario === "primary" ? form.shiftA : form.shiftB
-  }% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
+- ${nextStep}`;
 
   async function handleCopySummary() {
     await navigator.clipboard.writeText(repSummary);
@@ -301,7 +307,7 @@ Run a controlled ${
       <div className="print-page">
         <div className="no-print">
           <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V10)
+            CAC Creep Calculator (V11)
           </h1>
 
           <WorkflowHeader />
@@ -557,6 +563,83 @@ Run a controlled ${
               CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
             </p>
             <p style={{ marginTop: 8, color: "#475569" }}>{recommendedReason}</p>
+          </Card>
+
+          <Card style={{ marginTop: 20 }}>
+            <h3 style={{ marginTop: 0 }}>Conversation Prompts</h3>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 14,
+                  padding: 14,
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: "#64748b",
+                    marginBottom: 6,
+                  }}
+                >
+                  Opener
+                </div>
+                <div style={{ color: "#334155", lineHeight: 1.7 }}>{opener}</div>
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 14,
+                  padding: 14,
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: "#64748b",
+                    marginBottom: 6,
+                  }}
+                >
+                  Reframe
+                </div>
+                <div style={{ color: "#334155", lineHeight: 1.7 }}>{reframe}</div>
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 14,
+                  padding: 14,
+                  background: "#f8fafc",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    color: "#64748b",
+                    marginBottom: 6,
+                  }}
+                >
+                  Next Step
+                </div>
+                <div style={{ color: "#334155", lineHeight: 1.7 }}>{nextStep}</div>
+              </div>
+            </div>
           </Card>
 
           <Card style={{ marginTop: 20 }}>
@@ -888,9 +971,15 @@ Run a controlled ${
                 background: "#f8fafc",
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Rep Summary</h3>
+              <h3 style={{ marginTop: 0 }}>Conversation Prompts</h3>
+              <p style={{ marginBottom: 10, lineHeight: 1.7, color: "#334155" }}>
+                <strong>Opener:</strong> {opener}
+              </p>
+              <p style={{ marginBottom: 10, lineHeight: 1.7, color: "#334155" }}>
+                <strong>Reframe:</strong> {reframe}
+              </p>
               <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#334155" }}>
-                {repSummary}
+                <strong>Next step:</strong> {nextStep}
               </p>
             </div>
           </div>
