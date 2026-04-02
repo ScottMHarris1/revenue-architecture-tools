@@ -9,6 +9,7 @@ import SimpleBar from "../components/SimpleBar";
 import MixShiftCard from "../components/MixShiftCard";
 import WorkflowHeader from "../components/WorkflowHeader";
 import RepCoachingPanel from "../components/RepCoachingPanel";
+import ManagerInspectionPanel from "../components/ManagerInspectionPanel";
 import {
   BenchmarkMode,
   benchmarkDescriptions,
@@ -205,6 +206,38 @@ export default function Page() {
     },
   ];
 
+  const managerInspectionItems = [
+    {
+      title: "Diagnose",
+      question:
+        "Did the rep anchor on blended economics and identify whether CAC movement is a portfolio issue rather than only a channel issue?",
+      goodLooksLike: `The rep explicitly referenced CAC movement from ${formatMoney(
+        A.priorCAC
+      )} to ${formatMoney(
+        A.currentCAC
+      )}, connected that movement to the current ${form.captureMix}% capture mix, and positioned the issue as a portfolio efficiency question.`,
+    },
+    {
+      title: "Reframe",
+      question:
+        "Did the rep move the conversation from channel performance to system-level allocation?",
+      goodLooksLike:
+        "The rep acknowledged that lower-funnel channels may still be performing, then reframed the discussion toward over-indexing on capture, blended efficiency, and marginal CAC creep.",
+    },
+    {
+      title: "Recommend",
+      question:
+        "Did the rep present a controlled recommendation with a clear reason why it is the stronger option?",
+      goodLooksLike: `${recommendedLabel}. The rep explained why this option wins using modeled revenue lift, CAC, and LTV:CAC rather than vague language or opinions.`,
+    },
+    {
+      title: "Next Step",
+      question:
+        "Did the rep drive to a concrete next step instead of ending on a vague discussion?",
+      goodLooksLike: `The rep proposed a controlled ${recommendedShift}% reallocation test, held spend flat, and specified what would be measured before deciding whether to scale.`,
+    },
+  ];
+
   const repSummary = `Client: ${safeClientName}. Account: ${safeAccountName}. Benchmark: ${
     benchmarkLabels[form.benchmarkMode]
   }. Current mix is ${form.captureMix}% capture / ${form.discoveryMix}% discovery. CAC has moved from ${formatMoney(
@@ -333,7 +366,7 @@ Recommended next step
       <div className="print-page">
         <div className="no-print">
           <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V11)
+            CAC Creep Calculator (V12)
           </h1>
 
           <WorkflowHeader />
@@ -671,6 +704,11 @@ Recommended next step
           <Card style={{ marginTop: 20 }}>
             <h3 style={{ marginTop: 0 }}>Rep Coaching Panel</h3>
             <RepCoachingPanel strongAnswer={strongAnswer} objections={objections} />
+          </Card>
+
+          <Card style={{ marginTop: 20 }}>
+            <h3 style={{ marginTop: 0 }}>Manager Inspection Panel</h3>
+            <ManagerInspectionPanel items={managerInspectionItems} />
           </Card>
 
           <Card style={{ marginTop: 20 }}>
