@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Card from "../components/Card";
 import MetricCard from "../components/MetricCard";
+import ActionButton from "../components/ActionButton";
 import { calculateScenario } from "../lib/calculations";
 import { formatMoney, formatROAS, formatRatio } from "../lib/format";
 
@@ -16,6 +17,9 @@ export default function Page() {
 
   const [shiftA, setShiftA] = useState(12);
   const [shiftB, setShiftB] = useState(18);
+
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [copiedClient, setCopiedClient] = useState(false);
 
   const A = useMemo(
     () =>
@@ -44,6 +48,48 @@ export default function Page() {
       }),
     [spend, conversions, priorSpend, priorConversions, revPerConv, ltv, shiftB]
   );
+
+  const repSummary = `CAC has moved from ${formatMoney(A.priorCAC)} to ${formatMoney(
+    A.currentCAC
+  )}. A controlled ${shiftA}-${shiftB}% reallocation could generate ${formatMoney(
+    A.lift
+  )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. Primary scenario lands at ${formatMoney(
+    A.newCAC
+  )} CAC, ${formatROAS(A.roas)} ROAS, and ${formatRatio(
+    A.ltvToCac
+  )} LTV:CAC.`;
+
+  const clientExport = `${"Portfolio Efficiency Brief"}
+
+Current state
+- CAC: ${formatMoney(A.priorCAC)} → ${formatMoney(A.currentCAC)}
+
+Primary scenario (${shiftA}% shift)
+- CAC: ${formatMoney(A.newCAC)}
+- ROAS: ${formatROAS(A.roas)}
+- LTV:CAC: ${formatRatio(A.ltvToCac)}
+- Modeled revenue lift: ${formatMoney(A.lift)}
+
+Alternative scenario (${shiftB}% shift)
+- CAC: ${formatMoney(B.newCAC)}
+- ROAS: ${formatROAS(B.roas)}
+- LTV:CAC: ${formatRatio(B.ltvToCac)}
+- Modeled revenue lift: ${formatMoney(B.lift)}
+
+Recommended next step
+Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, and inspect CAC, blended efficiency, and modeled revenue lift before scaling.`;
+
+  async function handleCopySummary() {
+    await navigator.clipboard.writeText(repSummary);
+    setCopiedSummary(true);
+    setTimeout(() => setCopiedSummary(false), 1500);
+  }
+
+  async function handleCopyClientExport() {
+    await navigator.clipboard.writeText(clientExport);
+    setCopiedClient(true);
+    setTimeout(() => setCopiedClient(false), 1500);
+  }
 
   return (
     <div
@@ -132,8 +178,29 @@ export default function Page() {
       </div>
 
       <Card style={{ marginTop: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Current System</h3>
-        <p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <h3 style={{ margin: 0 }}>Current System</h3>
+          <div style={{ display: "flex", gap: 10 }}>
+            <ActionButton
+              label={copiedSummary ? "Summary Copied" : "Copy Summary"}
+              onClick={handleCopySummary}
+            />
+            <ActionButton
+              label={copiedClient ? "Client Export Copied" : "Copy Client Export"}
+              onClick={handleCopyClientExport}
+            />
+          </div>
+        </div>
+
+        <p style={{ marginTop: 14 }}>
           CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
         </p>
       </Card>
@@ -173,11 +240,20 @@ export default function Page() {
 
       <Card style={{ marginTop: 20 }}>
         <h3 style={{ marginTop: 0 }}>Rep Talk Track</h3>
-        <p>
-          CAC has moved from {formatMoney(A.priorCAC)} to {formatMoney(A.currentCAC)}.
-          A controlled {shiftA}-{shiftB}% reallocation could generate {formatMoney(A.lift)}–
-          {formatMoney(B.lift)} in incremental revenue while improving blended efficiency.
-        </p>
+        <p>{repSummary}</p>
+      </Card>
+
+      <Card style={{ marginTop: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Portfolio Efficiency Brief</h3>
+        <div
+          style={{
+            whiteSpace: "pre-wrap",
+            lineHeight: 1.7,
+            color: "#334155",
+          }}
+        >
+          {clientExport}
+        </div>
       </Card>
     </div>
   );
