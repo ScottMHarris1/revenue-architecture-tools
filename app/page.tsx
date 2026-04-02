@@ -6,6 +6,7 @@ import MetricCard from "../components/MetricCard";
 import ActionButton from "../components/ActionButton";
 import ComparisonTable from "../components/ComparisonTable";
 import SimpleBar from "../components/SimpleBar";
+import MixShiftCard from "../components/MixShiftCard";
 import {
   BenchmarkMode,
   benchmarkDescriptions,
@@ -26,6 +27,9 @@ export default function Page() {
   const [shiftB, setShiftB] = useState(18);
   const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("independentA");
 
+  const [captureMix, setCaptureMix] = useState(82);
+  const [discoveryMix, setDiscoveryMix] = useState(18);
+
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedClient, setCopiedClient] = useState(false);
 
@@ -40,6 +44,8 @@ export default function Page() {
         ltv,
         shift: shiftA,
         benchmarkMode,
+        currentCaptureMix: captureMix,
+        currentDiscoveryMix: discoveryMix,
       }),
     [
       spend,
@@ -50,6 +56,8 @@ export default function Page() {
       ltv,
       shiftA,
       benchmarkMode,
+      captureMix,
+      discoveryMix,
     ]
   );
 
@@ -64,6 +72,8 @@ export default function Page() {
         ltv,
         shift: shiftB,
         benchmarkMode,
+        currentCaptureMix: captureMix,
+        currentDiscoveryMix: discoveryMix,
       }),
     [
       spend,
@@ -74,43 +84,53 @@ export default function Page() {
       ltv,
       shiftB,
       benchmarkMode,
+      captureMix,
+      discoveryMix,
     ]
   );
 
   const repSummary = `Benchmark: ${
     benchmarkLabels[benchmarkMode]
-  }. CAC has moved from ${formatMoney(A.priorCAC)} to ${formatMoney(
+  }. Current mix is ${captureMix}% capture / ${discoveryMix}% discovery. CAC has moved from ${formatMoney(
+    A.priorCAC
+  )} to ${formatMoney(
     A.currentCAC
   )}. A controlled ${shiftA}-${shiftB}% reallocation could generate ${formatMoney(
     A.lift
   )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. Primary scenario lands at ${formatMoney(
     A.newCAC
-  )} CAC, ${formatROAS(A.roas)} ROAS, and ${formatRatio(
-    A.ltvToCac
-  )} LTV:CAC.`;
+  )} CAC, ${formatROAS(A.roas)} ROAS, and ${formatRatio(A.ltvToCac)} LTV:CAC.`;
 
   const clientExport = `Portfolio Efficiency Brief
 
 Benchmark mode
 - ${benchmarkLabels[benchmarkMode]}
 
+Current mix
+- Capture: ${captureMix}%
+- Discovery: ${discoveryMix}%
+
 Current state
 - CAC: ${formatMoney(A.priorCAC)} → ${formatMoney(A.currentCAC)}
 
 Primary scenario (${shiftA}% shift)
+- Capture: ${A.modeledCaptureMix}%
+- Discovery: ${A.modeledDiscoveryMix}%
 - CAC: ${formatMoney(A.newCAC)}
 - ROAS: ${formatROAS(A.roas)}
 - LTV:CAC: ${formatRatio(A.ltvToCac)}
 - Modeled revenue lift: ${formatMoney(A.lift)}
 
 Alternative scenario (${shiftB}% shift)
+- Capture: ${B.modeledCaptureMix}%
+- Discovery: ${B.modeledDiscoveryMix}%
 - CAC: ${formatMoney(B.newCAC)}
 - ROAS: ${formatROAS(B.roas)}
 - LTV:CAC: ${formatRatio(B.ltvToCac)}
 - Modeled revenue lift: ${formatMoney(B.lift)}
 
 Recommended next step
-Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, and inspect CAC, blended efficiency, and modeled revenue lift before scaling.`;
+Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
 
   async function handleCopySummary() {
     await navigator.clipboard.writeText(repSummary);
@@ -138,7 +158,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
       }}
     >
       <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-        CAC Creep Calculator (V3)
+        CAC Creep Calculator (V4)
       </h1>
 
       <Card>
@@ -188,6 +208,32 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
           }}
         >
           <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Current Capture Mix (%)</label>
+            <input
+              type="number"
+              value={captureMix}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setCaptureMix(next);
+                setDiscoveryMix(Math.max(100 - next, 0));
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Current Discovery Mix (%)</label>
+            <input
+              type="number"
+              value={discoveryMix}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setDiscoveryMix(next);
+                setCaptureMix(Math.max(100 - next, 0));
+              }}
+            />
+          </div>
+
+          <div>
             <label style={{ display: "block", marginBottom: 6 }}>Primary Shift (%)</label>
             <input
               type="number"
@@ -221,14 +267,14 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
           subtext={`from ${formatMoney(A.priorCAC)}`}
         />
         <MetricCard
+          label="Current Mix"
+          value={`${captureMix}/${discoveryMix}`}
+          subtext="Capture / Discovery"
+        />
+        <MetricCard
           label="Primary ROAS"
           value={formatROAS(A.roas)}
           subtext={`${shiftA}% shift scenario`}
-        />
-        <MetricCard
-          label="Primary LTV:CAC"
-          value={formatRatio(A.ltvToCac)}
-          subtext={`LTV ${formatMoney(ltv)}`}
         />
         <MetricCard
           label="Modeled Revenue Lift"
@@ -263,6 +309,33 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
         <p style={{ marginTop: 14 }}>
           CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
         </p>
+      </Card>
+
+      <Card style={{ marginTop: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Mix Shift Visual</h3>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 16,
+          }}
+        >
+          <MixShiftCard
+            title="Current Mix"
+            capture={captureMix}
+            discovery={discoveryMix}
+          />
+          <MixShiftCard
+            title={`Primary Scenario (${shiftA}%)`}
+            capture={A.modeledCaptureMix}
+            discovery={A.modeledDiscoveryMix}
+          />
+          <MixShiftCard
+            title={`Alternative Scenario (${shiftB}%)`}
+            capture={B.modeledCaptureMix}
+            discovery={B.modeledDiscoveryMix}
+          />
+        </div>
       </Card>
 
       <div
