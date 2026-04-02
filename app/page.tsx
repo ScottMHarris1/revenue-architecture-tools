@@ -32,6 +32,7 @@ import {
   Check,
   FileText,
   Printer,
+  Columns3,
 } from "lucide-react";
 
 function clamp(n: number, min: number, max: number) {
@@ -62,7 +63,37 @@ function inverseScore(value: number, lowBad: number, highGood: number) {
   return clamp(20 + ((value - lowBad) / Math.max(highGood - lowBad, 1)) * 70, 20, 90);
 }
 
-const defaultState = {
+type BenchMode = "big-6-agency" | "independent-agency-a" | "independent-agency-b" | "inside-sales-team";
+type ScreenMode = "home" | "cac" | "fragility";
+
+type AppState = {
+  screen: ScreenMode;
+  company: string;
+  monthlySpend: number;
+  monthlyConversions: number;
+  priorMonthlySpend: number;
+  priorMonthlyConversions: number;
+  captureMix: number;
+  discoveryMix: number;
+  testReallocation: number;
+  comparisonShift: number;
+  accountCount: number;
+  targetReadoutWeeks: number;
+  benchmarkMode: BenchMode;
+  revenuePerConversion: number;
+  ltv: number;
+  currentBlendedROAS: number;
+  priorBlendedROAS: number;
+  top3RevenueConcentration: number;
+  founderDependentDeals: number;
+  forecastAccuracy: number;
+  grossMargin: number;
+  priorGrossMargin: number;
+  managerInspectionRate: number;
+  revenueGovernanceScore: number;
+};
+
+const defaultState: AppState = {
   screen: "home",
   company: "Your Agency",
   monthlySpend: 300000,
@@ -72,6 +103,7 @@ const defaultState = {
   captureMix: 82,
   discoveryMix: 18,
   testReallocation: 12,
+  comparisonShift: 18,
   accountCount: 18,
   targetReadoutWeeks: 3,
   benchmarkMode: "independent-agency-a",
@@ -87,9 +119,6 @@ const defaultState = {
   managerInspectionRate: 54,
   revenueGovernanceScore: 58,
 };
-
-type BenchMode = "big-6-agency" | "independent-agency-a" | "independent-agency-b" | "inside-sales-team";
-type ScreenMode = "home" | "cac" | "fragility";
 
 const benchmarkPresets: Record<
   BenchMode,
@@ -151,7 +180,15 @@ function Badge({ children, outline = false }: { children: React.ReactNode; outli
   );
 }
 
-function Button({ children, onClick, outline = false }: { children: React.ReactNode; onClick?: () => void; outline?: boolean }) {
+function Button({
+  children,
+  onClick,
+  outline = false,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  outline?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
@@ -170,7 +207,7 @@ function Button({ children, onClick, outline = false }: { children: React.ReactN
   );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div
       style={{
@@ -178,6 +215,7 @@ function Card({ children }: { children: React.ReactNode }) {
         borderRadius: 28,
         boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
         padding: 24,
+        ...style,
       }}
     >
       {children}
@@ -194,7 +232,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function NumberInput({ value, onChange, step = 1 }: { value: number; onChange: (n: number) => void; step?: number }) {
+function NumberInput({
+  value,
+  onChange,
+  step = 1,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  step?: number;
+}) {
   return (
     <input
       type="number"
@@ -228,7 +274,17 @@ function TextInput({ value, onChange }: { value: string; onChange: (s: string) =
 }
 
 function RangeInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
-  return <input type="range" min={0} max={100} step={1} value={value} onChange={(e) => onChange(Number(e.target.value))} style={{ width: "100%" }} />;
+  return (
+    <input
+      type="range"
+      min={0}
+      max={100}
+      step={1}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      style={{ width: "100%" }}
+    />
+  );
 }
 
 function SelectInput({ value, onChange }: { value: string; onChange: (s: string) => void }) {
@@ -252,12 +308,71 @@ function SelectInput({ value, onChange }: { value: string; onChange: (s: string)
   );
 }
 
+function runScenario(state: AppState, shift: number) {
+  const currentCAC = state.monthlySpend / Math.max(state.monthlyConversions, 1);
+  const priorCAC = state.priorMonthlySpend / Math.max(state.priorMonthlyConversions, 1);
+  const cacChange = ((currentCAC - priorCAC) / Math.max(priorCAC, 1)) * 100;
+  const roasChange = ((state.currentBlendedROAS - state.priorBlendedROAS) / Math.max(state.priorBlendedROAS, 0.01)) * 100;
+  const currentLtvToCac = state.ltv / Math.max(currentCAC, 1);
+  const priorLtvToCac = state.ltv / Math.max(priorCAC, 1);
+
+  const preset = benchmarkPresets[state.benchmarkMode];
+  const saturationRisk = clamp(
+    (state.captureMix - preset.captureCeiling) * 1.6 + Math.max(cacChange, 0) * 1.2 + Math.max(-roasChange, 0) * 0.9,
+    0,
+    100
+  );
+
+  let diagnosis = "Balanced Watch";
+  if (saturationRisk >= 65) diagnosis = "Allocation-Led CAC Creep";
+  else if (saturationRisk >= 45) diagnosis = "Emerging Portfolio Pressure";
+
+  const suggestedShift = clamp(shift, 5, 20);
+  const modeledCACImprovementPct = clamp((saturationRisk / 100) * 12 * (suggestedShift / 12), 2, 18);
+  const modeledNewCAC = currentCAC * (1 - modeledCACImprovementPct / 100);
+  const modeledConversions = state.monthlySpend / modeledNewCAC;
+  const incrementalConversions = modeledConversions - state.monthlyConversions;
+  const projectedRevenueLift = incrementalConversions * state.revenuePerConversion;
+  const modeledRevenue = modeledConversions * state.revenuePerConversion;
+  const modeledBlendedROAS = modeledRevenue / Math.max(state.monthlySpend, 1);
+  const modeledLtv = state.ltv * (1 + modeledCACImprovementPct / 100 * 0.35);
+  const modeledLtvToCac = modeledLtv / Math.max(modeledNewCAC, 1);
+  const testCaptureMix = clamp(state.captureMix - suggestedShift, 0, 100);
+  const testDiscoveryMix = clamp(state.discoveryMix + suggestedShift, 0, 100);
+
+  const narrative =
+    diagnosis === "Allocation-Led CAC Creep"
+      ? "CAC is likely being driven by portfolio over-indexing in demand capture. Marginal efficiency is fading before channel-level metrics make the issue obvious."
+      : diagnosis === "Emerging Portfolio Pressure"
+        ? "The portfolio is beginning to show early signs of saturation. CAC is rising and blended returns are softening even if channel metrics still look acceptable."
+        : "The portfolio is currently within a manageable range, but there are early signals worth monitoring before they compound.";
+
+  return {
+    currentCAC,
+    priorCAC,
+    currentLtvToCac,
+    priorLtvToCac,
+    modeledLtv,
+    modeledNewCAC,
+    modeledLtvToCac,
+    modeledBlendedROAS,
+    projectedRevenueLift,
+    suggestedShift,
+    testCaptureMix,
+    testDiscoveryMix,
+    incrementalConversions,
+    diagnosis,
+    narrative,
+    saturationRisk,
+  };
+}
+
 export default function RevenueArchitectureTools() {
-  const [state, setState] = useState(defaultState);
+  const [state, setState] = useState<AppState>(defaultState);
   const [copied, setCopied] = useState(false);
   const [copiedClient, setCopiedClient] = useState(false);
 
-  const update = (key: keyof typeof defaultState, value: string | number) => {
+  const update = (key: keyof AppState, value: string | number) => {
     setState((prev) => ({ ...prev, [key]: value as never }));
   };
 
@@ -273,156 +388,98 @@ export default function RevenueArchitectureTools() {
     setCopiedClient(false);
   };
 
-  const analysis = useMemo(() => {
-    const currentCAC = state.monthlySpend / Math.max(state.monthlyConversions, 1);
-    const priorCAC = state.priorMonthlySpend / Math.max(state.priorMonthlyConversions, 1);
-    const cacChange = ((currentCAC - priorCAC) / Math.max(priorCAC, 1)) * 100;
-    const roasChange = ((state.currentBlendedROAS - state.priorBlendedROAS) / Math.max(state.priorBlendedROAS, 0.01)) * 100;
-    const currentLtvToCac = state.ltv / Math.max(currentCAC, 1);
-    const priorLtvToCac = state.ltv / Math.max(priorCAC, 1);
+  const analysis = useMemo(() => runScenario(state, state.testReallocation), [state]);
+  const comparison = useMemo(() => runScenario(state, state.comparisonShift), [state]);
 
-    const preset = benchmarkPresets[state.benchmarkMode as BenchMode];
+  const cards = [
+    {
+      title: "Current CAC",
+      value: formatMoney(analysis.currentCAC),
+      sub: `${analysis.currentCAC >= analysis.priorCAC ? "+" : ""}${formatPct(((analysis.currentCAC - analysis.priorCAC) / Math.max(analysis.priorCAC, 1)) * 100)} vs prior period`,
+      icon: DollarSign,
+    },
+    {
+      title: "Current blended ROAS",
+      value: `${state.currentBlendedROAS.toFixed(2)}x`,
+      sub: `${(((state.currentBlendedROAS - state.priorBlendedROAS) / Math.max(state.priorBlendedROAS, 0.01)) * 100 >= 0 ? "+" : "")}${formatPct(((state.currentBlendedROAS - state.priorBlendedROAS) / Math.max(state.priorBlendedROAS, 0.01)) * 100)} vs prior period`,
+      icon: TrendingUp,
+    },
+    {
+      title: "LTV:CAC",
+      value: `${analysis.currentLtvToCac.toFixed(1)}:1`,
+      sub: `LTV ${formatMoney(state.ltv)} | prior ${analysis.priorLtvToCac.toFixed(1)}:1`,
+      icon: Layers3,
+    },
+    {
+      title: "Projected revenue lift",
+      value: formatMoney(analysis.projectedRevenueLift),
+      sub: `${Math.round(analysis.incrementalConversions)} incremental conversions modeled`,
+      icon: Activity,
+    },
+  ];
 
-    const saturationRisk = clamp(
-      (state.captureMix - preset.captureCeiling) * 1.6 + Math.max(cacChange, 0) * 1.2 + Math.max(-roasChange, 0) * 0.9,
-      0,
-      100
-    );
+  const trendData = [
+    { period: "Prior", cac: Math.round(analysis.priorCAC) },
+    { period: "Current", cac: Math.round(analysis.currentCAC) },
+    { period: "Primary", cac: Math.round(analysis.modeledNewCAC) },
+    { period: "Compare", cac: Math.round(comparison.modeledNewCAC) },
+  ];
 
-    let diagnosis = "Balanced Watch";
-    if (saturationRisk >= 65) diagnosis = "Allocation-Led CAC Creep";
-    else if (saturationRisk >= 45) diagnosis = "Emerging Portfolio Pressure";
+  const mixData = [
+    { name: "Current", capture: state.captureMix, discovery: state.discoveryMix },
+    { name: `Primary ${analysis.suggestedShift}%`, capture: analysis.testCaptureMix, discovery: analysis.testDiscoveryMix },
+    { name: `Compare ${comparison.suggestedShift}%`, capture: comparison.testCaptureMix, discovery: comparison.testDiscoveryMix },
+  ];
 
-    const suggestedShift = clamp(state.testReallocation, 5, 20);
-    const modeledCACImprovementPct = clamp((saturationRisk / 100) * 12, 2, 14);
-    const modeledNewCAC = currentCAC * (1 - modeledCACImprovementPct / 100);
-    const modeledConversions = state.monthlySpend / modeledNewCAC;
-    const incrementalConversions = modeledConversions - state.monthlyConversions;
-    const projectedRevenueLift = incrementalConversions * state.revenuePerConversion;
-    const modeledRevenue = modeledConversions * state.revenuePerConversion;
-    const modeledBlendedROAS = modeledRevenue / Math.max(state.monthlySpend, 1);
-    const modeledLtv = state.ltv * (1 + modeledCACImprovementPct / 100 * 0.35);
-    const modeledLtvToCac = modeledLtv / Math.max(modeledNewCAC, 1);
+  const resilienceScore = inverseScore(100 - state.top3RevenueConcentration, 35, 70);
+  const dependencyScore = inverseScore(100 - state.founderDependentDeals, 35, 75);
+  const forecastScore = inverseScore(state.forecastAccuracy, 55, 90);
+  const scalabilityScore = clamp(inverseScore(state.grossMargin, 28, 55) * 0.6 + inverseScore(state.managerInspectionRate, 35, 85) * 0.4, 0, 100);
+  const governanceScore = clamp(inverseScore(state.revenueGovernanceScore, 40, 90) * 0.55 + inverseScore(state.managerInspectionRate, 35, 85) * 0.45, 0, 100);
 
-    const narrative =
-      diagnosis === "Allocation-Led CAC Creep"
-        ? "CAC is likely being driven by portfolio over-indexing in demand capture. Marginal efficiency is fading before channel-level metrics make the issue obvious."
-        : diagnosis === "Emerging Portfolio Pressure"
-          ? "The portfolio is beginning to show early signs of saturation. CAC is rising and blended returns are softening even if channel metrics still look acceptable."
-          : "The portfolio is currently within a manageable range, but there are early signals worth monitoring before they compound.";
+  const fragilityScore = Math.round(
+    resilienceScore * 0.25 +
+      forecastScore * 0.25 +
+      dependencyScore * 0.2 +
+      inverseScore(state.grossMargin, 28, 55) * 0.15 +
+      inverseScore(state.managerInspectionRate, 35, 85) * 0.15
+  );
 
-    const cards = [
-      {
-        title: "Current CAC",
-        value: formatMoney(currentCAC),
-        sub: `${cacChange >= 0 ? "+" : ""}${formatPct(cacChange)} vs prior period`,
-        icon: DollarSign,
-      },
-      {
-        title: "Current blended ROAS",
-        value: `${state.currentBlendedROAS.toFixed(2)}x`,
-        sub: `${roasChange >= 0 ? "+" : ""}${formatPct(roasChange)} vs prior period`,
-        icon: TrendingUp,
-      },
-      {
-        title: "LTV:CAC",
-        value: `${currentLtvToCac.toFixed(1)}:1`,
-        sub: `LTV ${formatMoney(state.ltv)} | prior ${priorLtvToCac.toFixed(1)}:1`,
-        icon: Layers3,
-      },
-      {
-        title: "Projected revenue lift",
-        value: formatMoney(projectedRevenueLift),
-        sub: `${Math.round(incrementalConversions)} incremental conversions modeled`,
-        icon: Activity,
-      },
-    ];
+  let fragilityBand = "Healthy";
+  if (fragilityScore < 55) fragilityBand = "Fragile";
+  else if (fragilityScore < 75) fragilityBand = "Watch";
 
-    const trendData = [
-      { period: "Prior", cac: Math.round(priorCAC) },
-      { period: "Current", cac: Math.round(currentCAC) },
-      { period: "Modeled", cac: Math.round(modeledNewCAC) },
-    ];
+  const fragilityPillars = [
+    { name: "Resilience", score: Math.round(resilienceScore) },
+    { name: "Governance", score: Math.round(governanceScore) },
+    { name: "Founder Independence", score: Math.round(dependencyScore) },
+    { name: "Scalability", score: Math.round(scalabilityScore) },
+  ];
 
-    const mixData = [
-      { name: "Current", capture: state.captureMix, discovery: state.discoveryMix },
-      { name: "Test Mix", capture: clamp(state.captureMix - suggestedShift, 0, 100), discovery: clamp(state.discoveryMix + suggestedShift, 0, 100) },
-    ];
+  const fragilityNarrative =
+    fragilityBand === "Fragile"
+      ? "Growth is likely masking structural risk. Revenue concentration, founder dependency, or weak governance are limiting transferability and predictability."
+      : fragilityBand === "Watch"
+        ? "The system is growing, but durability is not fully proven. This is a strong post-test expansion zone: enough traction to care, enough fragility to act."
+        : "The revenue system appears comparatively durable. The strongest next move here is benchmarked insight and scenario planning rather than urgent remediation.";
 
-    const resilienceScore = inverseScore(100 - state.top3RevenueConcentration, 35, 70);
-    const dependencyScore = inverseScore(100 - state.founderDependentDeals, 35, 75);
-    const forecastScore = inverseScore(state.forecastAccuracy, 55, 90);
-    const scalabilityScore = clamp(inverseScore(state.grossMargin, 28, 55) * 0.6 + inverseScore(state.managerInspectionRate, 35, 85) * 0.4, 0, 100);
-    const governanceScore = clamp(inverseScore(state.revenueGovernanceScore, 40, 90) * 0.55 + inverseScore(state.managerInspectionRate, 35, 85) * 0.45, 0, 100);
-
-    const fragilityScore = Math.round(
-      resilienceScore * 0.25 +
-        forecastScore * 0.25 +
-        dependencyScore * 0.2 +
-        inverseScore(state.grossMargin, 28, 55) * 0.15 +
-        inverseScore(state.managerInspectionRate, 35, 85) * 0.15
-    );
-
-    let fragilityBand = "Healthy";
-    if (fragilityScore < 55) fragilityBand = "Fragile";
-    else if (fragilityScore < 75) fragilityBand = "Watch";
-
-    const fragilityPillars = [
-      { name: "Resilience", score: Math.round(resilienceScore) },
-      { name: "Governance", score: Math.round(governanceScore) },
-      { name: "Founder Independence", score: Math.round(dependencyScore) },
-      { name: "Scalability", score: Math.round(scalabilityScore) },
-    ];
-
-    const fragilityNarrative =
-      fragilityBand === "Fragile"
-        ? "Growth is likely masking structural risk. Revenue concentration, founder dependency, or weak governance are limiting transferability and predictability."
-        : fragilityBand === "Watch"
-          ? "The system is growing, but durability is not fully proven. This is a strong post-test expansion zone: enough traction to care, enough fragility to act."
-          : "The revenue system appears comparatively durable. The strongest next move here is benchmarked insight and scenario planning rather than urgent remediation.";
-
-    const clientExport = `${state.company}
+  const clientExport = `${state.company}
 
 Portfolio Snapshot
-- Benchmark mode: ${benchmarkPresets[state.benchmarkMode as BenchMode].label}
-- CAC: ${formatMoney(currentCAC)} (from ${formatMoney(priorCAC)})
+- Benchmark mode: ${benchmarkPresets[state.benchmarkMode].label}
+- CAC: ${formatMoney(analysis.currentCAC)} (from ${formatMoney(analysis.priorCAC)})
 - Blended ROAS: ${state.currentBlendedROAS.toFixed(2)}x (from ${state.priorBlendedROAS.toFixed(2)}x)
-- LTV:CAC: ${currentLtvToCac.toFixed(1)}:1 (from ${priorLtvToCac.toFixed(1)}:1)
+- LTV:CAC: ${analysis.currentLtvToCac.toFixed(1)}:1 (from ${analysis.priorLtvToCac.toFixed(1)}:1)
 
 Modeled Test Outcome
-- Recommended shift: ${suggestedShift}% from capture into discovery
-- Modeled CAC: ${formatMoney(modeledNewCAC)}
-- Modeled blended ROAS: ${modeledBlendedROAS.toFixed(2)}x
-- Modeled LTV:CAC: ${modeledLtvToCac.toFixed(1)}:1
-- Projected revenue lift: ${formatMoney(projectedRevenueLift)}
+- Recommended shift: ${analysis.suggestedShift}% from capture into discovery
+- Modeled CAC: ${formatMoney(analysis.modeledNewCAC)}
+- Modeled blended ROAS: ${analysis.modeledBlendedROAS.toFixed(2)}x
+- Modeled LTV:CAC: ${analysis.modeledLtvToCac.toFixed(1)}:1
+- Projected revenue lift: ${formatMoney(analysis.projectedRevenueLift)}
 
 Recommended Next Step
-Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.`;
-
-    return {
-      currentCAC,
-      priorCAC,
-      currentLtvToCac,
-      priorLtvToCac,
-      modeledLtv,
-      modeledNewCAC,
-      modeledLtvToCac,
-      cards,
-      diagnosis,
-      suggestedShift,
-      projectedRevenueLift,
-      modeledBlendedROAS,
-      narrative,
-      trendData,
-      mixData,
-      fragilityScore,
-      fragilityBand,
-      fragilityPillars,
-      fragilityNarrative,
-      forecastScore,
-      clientExport,
-    };
-  }, [state]);
+Run a controlled ${analysis.suggestedShift}% reallocation over ${state.targetReadoutWeeks} weeks, hold spend flat, and inspect blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.`;
 
   const copySummary = async () => {
     const summary = `Portfolio summary for ${state.company}: CAC moved from ${formatMoney(analysis.priorCAC)} to ${formatMoney(analysis.currentCAC)}. Current blended ROAS is ${state.currentBlendedROAS.toFixed(2)}x versus prior ${state.priorBlendedROAS.toFixed(2)}x. Current LTV:CAC is ${analysis.currentLtvToCac.toFixed(1)}:1. A controlled ${analysis.suggestedShift}% reallocation from capture into discovery could model approximately ${formatMoney(analysis.projectedRevenueLift)} in revenue lift, with blended ROAS moving to ${analysis.modeledBlendedROAS.toFixed(2)}x, CAC moving to ${formatMoney(analysis.modeledNewCAC)}, and LTV:CAC moving to ${analysis.modeledLtvToCac.toFixed(1)}:1.`;
@@ -437,7 +494,7 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
 
   const copyClientExport = async () => {
     try {
-      await navigator.clipboard.writeText(analysis.clientExport);
+      await navigator.clipboard.writeText(clientExport);
       setCopiedClient(true);
       window.setTimeout(() => setCopiedClient(false), 1800);
     } catch {
@@ -560,7 +617,7 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                     <Field label="Accounts in portfolio"><NumberInput value={state.accountCount} onChange={(v) => update("accountCount", v)} /></Field>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.6, color: "#475569", background: "#f8fafc", borderRadius: 14, padding: 12 }}>
-                    <strong>{benchmarkPresets[state.benchmarkMode as BenchMode].label}:</strong> {benchmarkPresets[state.benchmarkMode as BenchMode].description}
+                    <strong>{benchmarkPresets[state.benchmarkMode].label}:</strong> {benchmarkPresets[state.benchmarkMode].description}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <Field label="Current monthly spend"><NumberInput value={state.monthlySpend} onChange={(v) => update("monthlySpend", v)} /></Field>
@@ -571,9 +628,10 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                   <Field label={`Demand capture mix (${state.captureMix}%)`}><RangeInput value={state.captureMix} onChange={(v) => { update("captureMix", v); update("discoveryMix", 100 - v); }} /></Field>
                   <Field label={`Demand discovery mix (${state.discoveryMix}%)`}><RangeInput value={state.discoveryMix} onChange={(v) => { update("discoveryMix", v); update("captureMix", 100 - v); }} /></Field>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    <Field label="Test reallocation (%)"><NumberInput value={state.testReallocation} onChange={(v) => update("testReallocation", v)} /></Field>
-                    <Field label="Readout window (weeks)"><NumberInput value={state.targetReadoutWeeks} onChange={(v) => update("targetReadoutWeeks", v)} /></Field>
+                    <Field label="Primary shift (%)"><NumberInput value={state.testReallocation} onChange={(v) => update("testReallocation", v)} /></Field>
+                    <Field label="Compare shift (%)"><NumberInput value={state.comparisonShift} onChange={(v) => update("comparisonShift", v)} /></Field>
                   </div>
+                  <Field label="Readout window (weeks)"><NumberInput value={state.targetReadoutWeeks} onChange={(v) => update("targetReadoutWeeks", v)} /></Field>
                   <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 18, display: "grid", gap: 16 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>Portfolio value inputs</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -590,7 +648,7 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
 
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                  {analysis.cards.map((card, idx) => {
+                  {cards.map((card, idx) => {
                     const Icon = card.icon;
                     return (
                       <motion.div key={card.title} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}>
@@ -605,68 +663,103 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                   })}
                 </div>
 
-                <Card className="print-card">
-                  <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <div><h3 style={{ margin: 0 }}>Rep summary</h3><p style={{ marginTop: 6, color: "#64748b" }}>Use this live to reframe the conversation and propose a next step.</p></div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div className="print-card">
+                  <Card>
+                    <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      <div><h3 style={{ margin: 0 }}>Rep summary</h3><p style={{ marginTop: 6, color: "#64748b" }}>Use this live to reframe the conversation and propose a next step.</p></div>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <Badge>{analysis.diagnosis}</Badge>
+                        <Button onClick={copySummary} outline>{copied ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><Copy size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy summary</>}</Button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", letterSpacing: 0.8 }}>Client one-pager</div>
+                        <h2 style={{ margin: "6px 0 0 0", fontSize: 30 }}>Portfolio Efficiency Snapshot</h2>
+                        <div style={{ marginTop: 6, color: "#475569" }}>{state.company} • {benchmarkPresets[state.benchmarkMode].label}</div>
+                      </div>
                       <Badge>{analysis.diagnosis}</Badge>
-                      <Button onClick={copySummary} outline>{copied ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><Copy size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy summary</>}</Button>
                     </div>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", letterSpacing: 0.8 }}>Client one-pager</div>
-                      <h2 style={{ margin: "6px 0 0 0", fontSize: 30 }}>Portfolio Efficiency Snapshot</h2>
-                      <div style={{ marginTop: 6, color: "#475569" }}>{state.company} • {benchmarkPresets[state.benchmarkMode as BenchMode].label}</div>
+
+                    <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 12 }}>
+                      <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.currentCAC)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {formatMoney(analysis.priorCAC)}</div></div>
+                      <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {state.currentBlendedROAS.toFixed(2)}x</div></div>
+                      <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {analysis.currentLtvToCac.toFixed(1)}:1</div></div>
+                      <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>modeled outcome</div></div>
                     </div>
-                    <Badge>{analysis.diagnosis}</Badge>
-                  </div>
 
-                  <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 12 }}>
-                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.currentCAC)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {formatMoney(analysis.priorCAC)}</div></div>
-                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Blended ROAS</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledBlendedROAS.toFixed(2)}x</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {state.currentBlendedROAS.toFixed(2)}x</div></div>
-                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>LTV:CAC</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.modeledLtvToCac.toFixed(1)}:1</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>from {analysis.currentLtvToCac.toFixed(1)}:1</div></div>
-                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Revenue lift</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{formatMoney(analysis.projectedRevenueLift)}</div><div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>modeled outcome</div></div>
-                  </div>
-
-                  <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 20 }}>
-                    <div>
-                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>Interpretation</div>
-                      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: "#334155" }}>{analysis.narrative}</p>
-                      <div style={{ marginTop: 18, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>Recommended next step</div>
-                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and measure blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.</p>
+                    <div style={{ marginTop: 22, display: "grid", gridTemplateColumns: "1.05fr 0.95fr", gap: 20 }}>
+                      <div>
+                        <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>Interpretation</div>
+                        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: "#334155" }}>{analysis.narrative}</p>
+                        <div style={{ marginTop: 18, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 8 }}>Recommended next step</div>
+                          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "#334155" }}>Run a controlled {analysis.suggestedShift}% reallocation from capture into discovery over {state.targetReadoutWeeks} weeks, hold spend flat, and measure blended CAC, blended ROAS, projected revenue lift, and LTV:CAC before scaling.</p>
+                        </div>
+                      </div>
+                      <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}>
+                        <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 10 }}>Modeled outcomes</div>
+                        <div style={{ display: "grid", gap: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled CAC</span><strong>{formatMoney(analysis.modeledNewCAC)}</strong></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV</span><strong>{formatMoney(analysis.modeledLtv)}</strong></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled blended ROAS</span><strong>{analysis.modeledBlendedROAS.toFixed(2)}x</strong></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV:CAC</span><strong>{analysis.modeledLtvToCac.toFixed(1)}:1</strong></div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Recommended shift</span><strong>{analysis.suggestedShift}%</strong></div>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ background: "#f8fafc", borderRadius: 18, padding: 16 }}>
-                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b", marginBottom: 10 }}>Modeled outcomes</div>
-                      <div style={{ display: "grid", gap: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled CAC</span><strong>{formatMoney(analysis.modeledNewCAC)}</strong></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV</span><strong>{formatMoney(analysis.modeledLtv)}</strong></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled blended ROAS</span><strong>{analysis.modeledBlendedROAS.toFixed(2)}x</strong></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Modeled LTV:CAC</span><strong>{analysis.modeledLtvToCac.toFixed(1)}:1</strong></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Recommended shift</span><strong>{analysis.suggestedShift}%</strong></div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
 
                 <div className="no-print" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24 }}>
                   <Card>
                     <h3 style={{ marginTop: 0 }}>CAC trend and modeled readout</h3>
                     <p style={{ color: "#64748b" }}>Prior vs current vs test scenario</p>
                     <div style={{ width: "100%", height: 320 }}>
-                      <ResponsiveContainer width="100%" height="100%"><AreaChart data={analysis.trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="period" /><YAxis /><Tooltip /><Area type="monotone" dataKey="cac" fillOpacity={0.15} /></AreaChart></ResponsiveContainer>
+                      <ResponsiveContainer width="100%" height="100%"><AreaChart data={trendData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="period" /><YAxis /><Tooltip /><Area type="monotone" dataKey="cac" fillOpacity={0.15} /></AreaChart></ResponsiveContainer>
                     </div>
                   </Card>
                   <Card>
                     <h3 style={{ marginTop: 0 }}>Mix shift view</h3>
-                    <p style={{ color: "#64748b" }}>Current portfolio mix vs modeled test mix</p>
+                    <p style={{ color: "#64748b" }}>Current portfolio mix vs modeled scenarios</p>
                     <div style={{ width: "100%", height: 320 }}>
-                      <ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.mixData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="capture" stackId="a" fill="#0f172a" /><Bar dataKey="discovery" stackId="a" fill="#94a3b8" /></BarChart></ResponsiveContainer>
+                      <ResponsiveContainer width="100%" height="100%"><BarChart data={mixData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="capture" stackId="a" fill="#0f172a" /><Bar dataKey="discovery" stackId="a" fill="#94a3b8" /></BarChart></ResponsiveContainer>
                     </div>
                   </Card>
                 </div>
+
+                <Card className="no-print">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                    <div>
+                      <h3 style={{ margin: 0 }}>Scenario comparison</h3>
+                      <p style={{ marginTop: 6, color: "#64748b" }}>Show two allocation tests side-by-side and compare the likely portfolio outcome.</p>
+                    </div>
+                    <Badge outline><Columns3 size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />Primary vs Compare</Badge>
+                  </div>
+                  <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: 18, padding: 16, background: "#f8fafc" }}>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Primary scenario</div>
+                      <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{analysis.suggestedShift}% shift</div>
+                      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled CAC</span><strong>{formatMoney(analysis.modeledNewCAC)}</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled blended ROAS</span><strong>{analysis.modeledBlendedROAS.toFixed(2)}x</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled LTV:CAC</span><strong>{analysis.modeledLtvToCac.toFixed(1)}:1</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Projected revenue lift</span><strong>{formatMoney(analysis.projectedRevenueLift)}</strong></div>
+                      </div>
+                    </div>
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: 18, padding: 16, background: "#f8fafc" }}>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>Comparison scenario</div>
+                      <div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{comparison.suggestedShift}% shift</div>
+                      <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled CAC</span><strong>{formatMoney(comparison.modeledNewCAC)}</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled blended ROAS</span><strong>{comparison.modeledBlendedROAS.toFixed(2)}x</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modeled LTV:CAC</span><strong>{comparison.modeledLtvToCac.toFixed(1)}:1</strong></div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}><span>Projected revenue lift</span><strong>{formatMoney(comparison.projectedRevenueLift)}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
 
                 <Card className="no-print">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
@@ -677,7 +770,7 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                     <Button onClick={copyClientExport} outline>{copiedClient ? <><Check size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copied</> : <><FileText size={16} style={{ marginRight: 6, verticalAlign: "middle" }} />Copy client export</>}</Button>
                   </div>
                   <div style={{ marginTop: 16, border: "1px solid #e2e8f0", borderRadius: 18, padding: 16, background: "#f8fafc", whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.7, color: "#334155" }}>
-                    {analysis.clientExport}
+                    {clientExport}
                   </div>
                 </Card>
               </div>
@@ -716,10 +809,10 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
               <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
                   {[
-                    { title: "Fragility Score", value: `${analysis.fragilityScore}/100`, sub: analysis.fragilityBand, icon: ShieldAlert },
-                    { title: "Forecast Reliability", value: `${state.forecastAccuracy}%`, sub: scoreLabel(analysis.forecastScore), icon: BarChart3 },
+                    { title: "Fragility Score", value: `${fragilityScore}/100`, sub: fragilityBand, icon: ShieldAlert },
+                    { title: "Forecast Reliability", value: `${state.forecastAccuracy}%`, sub: scoreLabel(forecastScore), icon: BarChart3 },
                     { title: "Founder Dependency", value: `${state.founderDependentDeals}%`, sub: "Late-stage deals", icon: Users },
-                    { title: "Scalability", value: `${analysis.fragilityPillars[3].score}/100`, sub: scoreLabel(analysis.fragilityPillars[3].score), icon: Layers3 },
+                    { title: "Scalability", value: `${fragilityPillars[3].score}/100`, sub: scoreLabel(fragilityPillars[3].score), icon: Layers3 },
                   ].map((card, idx) => {
                     const Icon = card.icon;
                     return (
@@ -738,14 +831,14 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                 <Card>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                     <div><h3 style={{ margin: 0 }}>Strategic interpretation</h3><p style={{ marginTop: 6, color: "#64748b" }}>Use this to broaden the conversation beyond media mix into revenue durability.</p></div>
-                    <Badge>{analysis.fragilityBand}</Badge>
+                    <Badge>{fragilityBand}</Badge>
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1.1fr) minmax(260px, 0.9fr)", gap: 24, marginTop: 20 }}>
                     <div>
-                      <p style={{ fontSize: 16, lineHeight: 1.8, color: "#334155" }}>{analysis.fragilityNarrative}</p>
+                      <p style={{ fontSize: 16, lineHeight: 1.8, color: "#334155" }}>{fragilityNarrative}</p>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 20 }}>
-                        {analysis.fragilityPillars.map((pillar) => (
+                        {fragilityPillars.map((pillar) => (
                           <div key={pillar.name} style={{ background: "#f1f5f9", borderRadius: 18, padding: 16 }}><div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>{pillar.name}</div><div style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{pillar.score}/100</div><div style={{ marginTop: 4, fontSize: 14, color: "#475569" }}>{scoreLabel(pillar.score)}</div></div>
                         ))}
                       </div>
@@ -768,7 +861,7 @@ Run a controlled ${suggestedShift}% reallocation over ${state.targetReadoutWeeks
                   <h3 style={{ marginTop: 0 }}>Four-pillar view</h3>
                   <p style={{ color: "#64748b" }}>Benchmark resilience, governance, founder independence, and scalability.</p>
                   <div style={{ width: "100%", height: 320 }}>
-                    <ResponsiveContainer width="100%" height="100%"><BarChart data={analysis.fragilityPillars}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="score" /></BarChart></ResponsiveContainer>
+                    <ResponsiveContainer width="100%" height="100%"><BarChart data={fragilityPillars}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="score" /></BarChart></ResponsiveContainer>
                   </div>
                 </Card>
               </div>
