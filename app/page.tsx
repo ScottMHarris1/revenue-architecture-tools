@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Card from "../components/Card";
 import MetricCard from "../components/MetricCard";
 import ActionButton from "../components/ActionButton";
+import ComparisonTable from "../components/ComparisonTable";
+import SimpleBar from "../components/SimpleBar";
 import { calculateScenario } from "../lib/calculations";
 import { formatMoney, formatROAS, formatRatio } from "../lib/format";
 
@@ -59,7 +61,7 @@ export default function Page() {
     A.ltvToCac
   )} LTV:CAC.`;
 
-  const clientExport = `${"Portfolio Efficiency Brief"}
+  const clientExport = `Portfolio Efficiency Brief
 
 Current state
 - CAC: ${formatMoney(A.priorCAC)} → ${formatMoney(A.currentCAC)}
@@ -91,6 +93,9 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
     setTimeout(() => setCopiedClient(false), 1500);
   }
 
+  const maxLift = Math.max(A.lift, B.lift, 1);
+  const maxRoas = Math.max(A.roas, B.roas, 1);
+
   return (
     <div
       style={{
@@ -102,7 +107,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
       }}
     >
       <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-        CAC Creep Calculator (V2)
+        CAC Creep Calculator (V3)
       </h1>
 
       <Card>
@@ -227,6 +232,47 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
           <p>ROAS: {formatROAS(B.roas)}</p>
           <p>LTV:CAC: {formatRatio(B.ltvToCac)}</p>
           <p>Modeled lift: {formatMoney(B.lift)}</p>
+        </Card>
+      </div>
+
+      <Card style={{ marginTop: 20 }}>
+        <h3 style={{ marginTop: 0 }}>Scenario Comparison</h3>
+        <ComparisonTable
+          primary={{
+            shift: shiftA,
+            cac: formatMoney(A.newCAC),
+            roas: formatROAS(A.roas),
+            ltvToCac: formatRatio(A.ltvToCac),
+            lift: formatMoney(A.lift),
+          }}
+          alternative={{
+            shift: shiftB,
+            cac: formatMoney(B.newCAC),
+            roas: formatROAS(B.roas),
+            ltvToCac: formatRatio(B.ltvToCac),
+            lift: formatMoney(B.lift),
+          }}
+        />
+      </Card>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+          marginTop: 20,
+        }}
+      >
+        <Card>
+          <h3 style={{ marginTop: 0 }}>Modeled Revenue Lift</h3>
+          <SimpleBar label={`Primary (${shiftA}%)`} value={A.lift} max={maxLift} />
+          <SimpleBar label={`Alternative (${shiftB}%)`} value={B.lift} max={maxLift} />
+        </Card>
+
+        <Card>
+          <h3 style={{ marginTop: 0 }}>Modeled ROAS</h3>
+          <SimpleBar label={`Primary (${shiftA}%)`} value={A.roas} max={maxRoas} />
+          <SimpleBar label={`Alternative (${shiftB}%)`} value={B.roas} max={maxRoas} />
         </Card>
       </div>
 
