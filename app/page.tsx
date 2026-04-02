@@ -7,6 +7,7 @@ import ActionButton from "../components/ActionButton";
 import ComparisonTable from "../components/ComparisonTable";
 import SimpleBar from "../components/SimpleBar";
 import MixShiftCard from "../components/MixShiftCard";
+import WorkflowHeader from "../components/WorkflowHeader";
 import {
   BenchmarkMode,
   benchmarkDescriptions,
@@ -161,6 +162,15 @@ export default function Page() {
       ? `Recommended: ${form.shiftA}% shift`
       : `Recommended: ${form.shiftB}% shift`;
 
+  const recommendedReason =
+    recommendedScenario === "primary"
+      ? `Recommended because it shows ${formatMoney(A.lift)} in modeled revenue lift, ${formatMoney(
+          A.newCAC
+        )} modeled CAC, and ${formatRatio(A.ltvToCac)} modeled LTV:CAC.`
+      : `Recommended because it shows ${formatMoney(B.lift)} in modeled revenue lift, ${formatMoney(
+          B.newCAC
+        )} modeled CAC, and ${formatRatio(B.ltvToCac)} modeled LTV:CAC.`;
+
   const repSummary = `Client: ${safeClientName}. Account: ${safeAccountName}. Benchmark: ${
     benchmarkLabels[form.benchmarkMode]
   }. Current mix is ${form.captureMix}% capture / ${form.discoveryMix}% discovery. CAC has moved from ${formatMoney(
@@ -171,7 +181,7 @@ export default function Page() {
     A.lift
   )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. ${
     recommendedScenario === "primary" ? "Primary" : "Alternative"
-  } scenario currently looks stronger.`;
+  } scenario currently looks stronger. ${recommendedReason}`;
 
   const clientExport = `Portfolio Efficiency Brief
 
@@ -209,6 +219,9 @@ Alternative scenario (${form.shiftB}% shift)
 
 Recommended scenario
 - ${recommendedScenario === "primary" ? `Primary (${form.shiftA}% shift)` : `Alternative (${form.shiftB}% shift)`}
+
+Why this is recommended
+- ${recommendedReason}
 
 Recommended next step
 Run a controlled ${
@@ -288,8 +301,10 @@ Run a controlled ${
       <div className="print-page">
         <div className="no-print">
           <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V8)
+            CAC Creep Calculator (V10)
           </h1>
+
+          <WorkflowHeader />
 
           <Card>
             <div
@@ -541,6 +556,7 @@ Run a controlled ${
             <p style={{ marginTop: 8 }}>
               CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
             </p>
+            <p style={{ marginTop: 8, color: "#475569" }}>{recommendedReason}</p>
           </Card>
 
           <Card style={{ marginTop: 20 }}>
@@ -652,6 +668,9 @@ Run a controlled ${
               <h3 style={{ marginTop: 0, marginBottom: 0 }}>Scenario Comparison</h3>
               <RecommendationBadge label={recommendedLabel} />
             </div>
+            <div style={{ marginTop: 8, marginBottom: 12, color: "#475569" }}>
+              {recommendedReason}
+            </div>
             <ComparisonTable
               primary={{
                 shift: form.shiftA,
@@ -712,6 +731,7 @@ Run a controlled ${
               <h3 style={{ marginTop: 0, marginBottom: 0 }}>Decision View</h3>
               <RecommendationBadge label={recommendedLabel} />
             </div>
+            <p style={{ marginTop: 8, color: "#475569" }}>{recommendedReason}</p>
             <p>
               {form.shiftA}% shift → {formatMoney(A.lift)} | {form.shiftB}% shift →{" "}
               {formatMoney(B.lift)}
@@ -762,7 +782,7 @@ Run a controlled ${
                 border: "1px solid #e2e8f0",
                 borderRadius: 14,
                 padding: 14,
-                minWidth: 220,
+                minWidth: 260,
               }}
             >
               <div style={{ fontSize: 12, textTransform: "uppercase", color: "#64748b" }}>
@@ -770,6 +790,9 @@ Run a controlled ${
               </div>
               <div style={{ marginTop: 8 }}>
                 <RecommendationBadge label={recommendedLabel} />
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6, color: "#475569" }}>
+                {recommendedReason}
               </div>
             </div>
           </div>
@@ -846,11 +869,14 @@ Run a controlled ${
               }}
             >
               <h3 style={{ marginTop: 0 }}>Recommendation</h3>
-              <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#334155" }}>
+              <p style={{ marginBottom: 10, lineHeight: 1.7, color: "#334155" }}>
                 Run a controlled{" "}
                 {recommendedScenario === "primary" ? form.shiftA : form.shiftB}% reallocation from
                 capture into discovery, hold spend flat, and inspect CAC, blended efficiency, and
                 modeled revenue lift before scaling.
+              </p>
+              <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#475569" }}>
+                {recommendedReason}
               </p>
             </div>
 
@@ -902,6 +928,9 @@ Run a controlled ${
           >
             <h3 style={{ marginTop: 0, marginBottom: 0 }}>Portfolio Efficiency Brief</h3>
             <RecommendationBadge label={recommendedLabel} />
+          </div>
+          <div style={{ marginTop: 8, marginBottom: 12, color: "#475569" }}>
+            {recommendedReason}
           </div>
           <div
             style={{
