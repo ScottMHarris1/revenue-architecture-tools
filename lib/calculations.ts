@@ -46,6 +46,8 @@ export function calculateScenario({
   ltv,
   shift,
   benchmarkMode,
+  currentCaptureMix,
+  currentDiscoveryMix,
 }: {
   spend: number;
   conversions: number;
@@ -55,12 +57,17 @@ export function calculateScenario({
   ltv: number;
   shift: number;
   benchmarkMode: BenchmarkMode;
+  currentCaptureMix: number;
+  currentDiscoveryMix: number;
 }) {
   const currentCAC = spend / Math.max(conversions, 1);
   const priorCAC = priorSpend / Math.max(priorConversions, 1);
 
+  const capturePressure = Math.max(currentCaptureMix - 50, 0) / 50;
+  const benchmarkFactor = benchmarkImprovementFactor(benchmarkMode);
+
   const improvementFactor =
-    1 - (shift / 100) * benchmarkImprovementFactor(benchmarkMode);
+    1 - (shift / 100) * benchmarkFactor * (1 + capturePressure * 0.35);
 
   const newCAC = currentCAC * improvementFactor;
   const newConversions = spend / Math.max(newCAC, 1);
@@ -70,6 +77,9 @@ export function calculateScenario({
   const roas = revenue / Math.max(spend, 1);
   const ltvToCac = ltv / Math.max(newCAC, 1);
 
+  const modeledCaptureMix = Math.max(currentCaptureMix - shift, 0);
+  const modeledDiscoveryMix = Math.min(currentDiscoveryMix + shift, 100);
+
   return {
     currentCAC,
     priorCAC,
@@ -77,5 +87,9 @@ export function calculateScenario({
     lift,
     roas,
     ltvToCac,
+    modeledCaptureMix,
+    modeledDiscoveryMix,
+    currentCaptureMix,
+    currentDiscoveryMix,
   };
 }
