@@ -22,6 +22,7 @@ export default function SimpleBar({
           marginBottom: 6,
           fontSize: 14,
           color: "#334155",
+          gap: 12,
         }}
       >
         <span>{label}</span>
