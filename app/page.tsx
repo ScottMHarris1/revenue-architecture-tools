@@ -15,90 +15,125 @@ import {
 } from "../lib/calculations";
 import { formatMoney, formatROAS, formatRatio } from "../lib/format";
 
+type FormState = {
+  clientName: string;
+  accountName: string;
+  spend: number;
+  conversions: number;
+  priorSpend: number;
+  priorConversions: number;
+  revPerConv: number;
+  ltv: number;
+  shiftA: number;
+  shiftB: number;
+  benchmarkMode: BenchmarkMode;
+  captureMix: number;
+  discoveryMix: number;
+};
+
+const demoState: FormState = {
+  clientName: "Acme Agency",
+  accountName: "Q2 Growth Portfolio",
+  spend: 300000,
+  conversions: 2400,
+  priorSpend: 250000,
+  priorConversions: 2300,
+  revPerConv: 800,
+  ltv: 4800,
+  shiftA: 12,
+  shiftB: 18,
+  benchmarkMode: "independentA",
+  captureMix: 82,
+  discoveryMix: 18,
+};
+
+const liveState: FormState = {
+  clientName: "",
+  accountName: "",
+  spend: 150000,
+  conversions: 1000,
+  priorSpend: 140000,
+  priorConversions: 980,
+  revPerConv: 500,
+  ltv: 3000,
+  shiftA: 10,
+  shiftB: 15,
+  benchmarkMode: "independentA",
+  captureMix: 75,
+  discoveryMix: 25,
+};
+
+type Mode = "demo" | "live";
+
 export default function Page() {
-  const [clientName, setClientName] = useState("Acme Agency");
-  const [accountName, setAccountName] = useState("Portfolio A");
-
-  const [spend, setSpend] = useState(300000);
-  const [conversions, setConversions] = useState(2400);
-  const [priorSpend, setPriorSpend] = useState(250000);
-  const [priorConversions, setPriorConversions] = useState(2300);
-  const [revPerConv, setRevPerConv] = useState(800);
-  const [ltv, setLtv] = useState(4800);
-
-  const [shiftA, setShiftA] = useState(12);
-  const [shiftB, setShiftB] = useState(18);
-  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("independentA");
-
-  const [captureMix, setCaptureMix] = useState(82);
-  const [discoveryMix, setDiscoveryMix] = useState(18);
+  const [mode, setMode] = useState<Mode>("demo");
+  const [form, setForm] = useState<FormState>(demoState);
 
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedClient, setCopiedClient] = useState(false);
 
+  function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function loadDemoData() {
+    setMode("demo");
+    setForm(demoState);
+  }
+
+  function loadLiveData() {
+    setMode("live");
+    setForm(liveState);
+  }
+
+  function resetCurrentMode() {
+    setForm(mode === "demo" ? demoState : liveState);
+  }
+
   const A = useMemo(
     () =>
       calculateScenario({
-        spend,
-        conversions,
-        priorSpend,
-        priorConversions,
-        revenuePerConversion: revPerConv,
-        ltv,
-        shift: shiftA,
-        benchmarkMode,
-        currentCaptureMix: captureMix,
-        currentDiscoveryMix: discoveryMix,
+        spend: form.spend,
+        conversions: form.conversions,
+        priorSpend: form.priorSpend,
+        priorConversions: form.priorConversions,
+        revenuePerConversion: form.revPerConv,
+        ltv: form.ltv,
+        shift: form.shiftA,
+        benchmarkMode: form.benchmarkMode,
+        currentCaptureMix: form.captureMix,
+        currentDiscoveryMix: form.discoveryMix,
       }),
-    [
-      spend,
-      conversions,
-      priorSpend,
-      priorConversions,
-      revPerConv,
-      ltv,
-      shiftA,
-      benchmarkMode,
-      captureMix,
-      discoveryMix,
-    ]
+    [form]
   );
 
   const B = useMemo(
     () =>
       calculateScenario({
-        spend,
-        conversions,
-        priorSpend,
-        priorConversions,
-        revenuePerConversion: revPerConv,
-        ltv,
-        shift: shiftB,
-        benchmarkMode,
-        currentCaptureMix: captureMix,
-        currentDiscoveryMix: discoveryMix,
+        spend: form.spend,
+        conversions: form.conversions,
+        priorSpend: form.priorSpend,
+        priorConversions: form.priorConversions,
+        revenuePerConversion: form.revPerConv,
+        ltv: form.ltv,
+        shift: form.shiftB,
+        benchmarkMode: form.benchmarkMode,
+        currentCaptureMix: form.captureMix,
+        currentDiscoveryMix: form.discoveryMix,
       }),
-    [
-      spend,
-      conversions,
-      priorSpend,
-      priorConversions,
-      revPerConv,
-      ltv,
-      shiftB,
-      benchmarkMode,
-      captureMix,
-      discoveryMix,
-    ]
+    [form]
   );
 
-  const repSummary = `Client: ${clientName}. Account: ${accountName}. Benchmark: ${
-    benchmarkLabels[benchmarkMode]
-  }. Current mix is ${captureMix}% capture / ${discoveryMix}% discovery. CAC has moved from ${formatMoney(
+  const safeClientName = form.clientName || "Unnamed Client";
+  const safeAccountName = form.accountName || "Unnamed Account";
+
+  const repSummary = `Client: ${safeClientName}. Account: ${safeAccountName}. Benchmark: ${
+    benchmarkLabels[form.benchmarkMode]
+  }. Current mix is ${form.captureMix}% capture / ${form.discoveryMix}% discovery. CAC has moved from ${formatMoney(
     A.priorCAC
   )} to ${formatMoney(
     A.currentCAC
-  )}. A controlled ${shiftA}-${shiftB}% reallocation could generate ${formatMoney(
+  )}. A controlled ${form.shiftA}-${form.shiftB}% reallocation could generate ${formatMoney(
     A.lift
   )}–${formatMoney(B.lift)} in modeled revenue lift while improving blended efficiency. Primary scenario lands at ${formatMoney(
     A.newCAC
@@ -107,22 +142,22 @@ export default function Page() {
   const clientExport = `Portfolio Efficiency Brief
 
 Client
-- ${clientName}
+- ${safeClientName}
 
 Account / Portfolio
-- ${accountName}
+- ${safeAccountName}
 
 Benchmark mode
-- ${benchmarkLabels[benchmarkMode]}
+- ${benchmarkLabels[form.benchmarkMode]}
 
 Current mix
-- Capture: ${captureMix}%
-- Discovery: ${discoveryMix}%
+- Capture: ${form.captureMix}%
+- Discovery: ${form.discoveryMix}%
 
 Current state
 - CAC: ${formatMoney(A.priorCAC)} → ${formatMoney(A.currentCAC)}
 
-Primary scenario (${shiftA}% shift)
+Primary scenario (${form.shiftA}% shift)
 - Capture: ${A.modeledCaptureMix}%
 - Discovery: ${A.modeledDiscoveryMix}%
 - CAC: ${formatMoney(A.newCAC)}
@@ -130,7 +165,7 @@ Primary scenario (${shiftA}% shift)
 - LTV:CAC: ${formatRatio(A.ltvToCac)}
 - Modeled revenue lift: ${formatMoney(A.lift)}
 
-Alternative scenario (${shiftB}% shift)
+Alternative scenario (${form.shiftB}% shift)
 - Capture: ${B.modeledCaptureMix}%
 - Discovery: ${B.modeledDiscoveryMix}%
 - CAC: ${formatMoney(B.newCAC)}
@@ -139,7 +174,7 @@ Alternative scenario (${shiftB}% shift)
 - Modeled revenue lift: ${formatMoney(B.lift)}
 
 Recommended next step
-Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
+Run a controlled ${form.shiftA}% to ${form.shiftB}% reallocation test, hold spend flat, and inspect CAC, mix efficiency, and modeled revenue lift before scaling.`;
 
   async function handleCopySummary() {
     await navigator.clipboard.writeText(repSummary);
@@ -214,11 +249,47 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
       <div className="print-page">
         <div className="no-print">
           <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V6)
+            CAC Creep Calculator (V7)
           </h1>
 
           <Card>
-            <h3 style={{ marginTop: 0 }}>Inputs</h3>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h3 style={{ margin: 0 }}>Inputs</h3>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <ActionButton
+                  label={mode === "demo" ? "Demo Mode Active" : "Load Demo Data"}
+                  onClick={loadDemoData}
+                />
+                <ActionButton
+                  label={mode === "live" ? "Live Mode Active" : "Load Live Mode"}
+                  onClick={loadLiveData}
+                />
+                <ActionButton
+                  label="Reset Current Mode"
+                  onClick={resetCurrentMode}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginBottom: 14,
+                fontSize: 13,
+                color: "#475569",
+                lineHeight: 1.5,
+              }}
+            >
+              Current mode: <strong>{mode === "demo" ? "Demo" : "Live"}</strong>
+            </div>
 
             <div
               style={{
@@ -231,17 +302,19 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
               <div>
                 <label style={{ display: "block", marginBottom: 6 }}>Client Name</label>
                 <input
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
+                  value={form.clientName}
+                  onChange={(e) => updateField("clientName", e.target.value)}
                   placeholder="Acme Agency"
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: 6 }}>Account / Portfolio Name</label>
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Account / Portfolio Name
+                </label>
                 <input
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
+                  value={form.accountName}
+                  onChange={(e) => updateField("accountName", e.target.value)}
                   placeholder="Portfolio A"
                 />
               </div>
@@ -250,8 +323,10 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", marginBottom: 6 }}>Benchmark Mode</label>
               <select
-                value={benchmarkMode}
-                onChange={(e) => setBenchmarkMode(e.target.value as BenchmarkMode)}
+                value={form.benchmarkMode}
+                onChange={(e) =>
+                  updateField("benchmarkMode", e.target.value as BenchmarkMode)
+                }
               >
                 {Object.entries(benchmarkLabels).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -260,19 +335,37 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
                 ))}
               </select>
               <div style={{ marginTop: 8, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
-                {benchmarkDescriptions[benchmarkMode]}
+                {benchmarkDescriptions[form.benchmarkMode]}
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <input value={spend} onChange={(e) => setSpend(Number(e.target.value))} />
-              <input value={conversions} onChange={(e) => setConversions(Number(e.target.value))} />
+              <input
+                value={form.spend}
+                onChange={(e) => updateField("spend", Number(e.target.value))}
+              />
+              <input
+                value={form.conversions}
+                onChange={(e) => updateField("conversions", Number(e.target.value))}
+              />
 
-              <input value={priorSpend} onChange={(e) => setPriorSpend(Number(e.target.value))} />
-              <input value={priorConversions} onChange={(e) => setPriorConversions(Number(e.target.value))} />
+              <input
+                value={form.priorSpend}
+                onChange={(e) => updateField("priorSpend", Number(e.target.value))}
+              />
+              <input
+                value={form.priorConversions}
+                onChange={(e) => updateField("priorConversions", Number(e.target.value))}
+              />
 
-              <input value={revPerConv} onChange={(e) => setRevPerConv(Number(e.target.value))} />
-              <input value={ltv} onChange={(e) => setLtv(Number(e.target.value))} />
+              <input
+                value={form.revPerConv}
+                onChange={(e) => updateField("revPerConv", Number(e.target.value))}
+              />
+              <input
+                value={form.ltv}
+                onChange={(e) => updateField("ltv", Number(e.target.value))}
+              />
             </div>
 
             <div
@@ -284,27 +377,31 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
               }}
             >
               <div>
-                <label style={{ display: "block", marginBottom: 6 }}>Current Capture Mix (%)</label>
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Current Capture Mix (%)
+                </label>
                 <input
                   type="number"
-                  value={captureMix}
+                  value={form.captureMix}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setCaptureMix(next);
-                    setDiscoveryMix(Math.max(100 - next, 0));
+                    updateField("captureMix", next);
+                    updateField("discoveryMix", Math.max(100 - next, 0));
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: "block", marginBottom: 6 }}>Current Discovery Mix (%)</label>
+                <label style={{ display: "block", marginBottom: 6 }}>
+                  Current Discovery Mix (%)
+                </label>
                 <input
                   type="number"
-                  value={discoveryMix}
+                  value={form.discoveryMix}
                   onChange={(e) => {
                     const next = Number(e.target.value);
-                    setDiscoveryMix(next);
-                    setCaptureMix(Math.max(100 - next, 0));
+                    updateField("discoveryMix", next);
+                    updateField("captureMix", Math.max(100 - next, 0));
                   }}
                 />
               </div>
@@ -313,8 +410,8 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
                 <label style={{ display: "block", marginBottom: 6 }}>Primary Shift (%)</label>
                 <input
                   type="number"
-                  value={shiftA}
-                  onChange={(e) => setShiftA(Number(e.target.value))}
+                  value={form.shiftA}
+                  onChange={(e) => updateField("shiftA", Number(e.target.value))}
                 />
               </div>
 
@@ -322,8 +419,8 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
                 <label style={{ display: "block", marginBottom: 6 }}>Alternative Shift (%)</label>
                 <input
                   type="number"
-                  value={shiftB}
-                  onChange={(e) => setShiftB(Number(e.target.value))}
+                  value={form.shiftB}
+                  onChange={(e) => updateField("shiftB", Number(e.target.value))}
                 />
               </div>
             </div>
@@ -344,13 +441,13 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             />
             <MetricCard
               label="Current Mix"
-              value={`${captureMix}/${discoveryMix}`}
+              value={`${form.captureMix}/${form.discoveryMix}`}
               subtext="Capture / Discovery"
             />
             <MetricCard
               label="Primary ROAS"
               value={formatROAS(A.roas)}
-              subtext={`${shiftA}% shift scenario`}
+              subtext={`${form.shiftA}% shift scenario`}
             />
             <MetricCard
               label="Modeled Revenue Lift"
@@ -387,7 +484,8 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             </div>
 
             <p style={{ marginTop: 14 }}>
-              Client: <strong>{clientName}</strong> | Account: <strong>{accountName}</strong>
+              Client: <strong>{safeClientName}</strong> | Account:{" "}
+              <strong>{safeAccountName}</strong>
             </p>
             <p style={{ marginTop: 8 }}>
               CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
@@ -405,16 +503,16 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             >
               <MixShiftCard
                 title="Current Mix"
-                capture={captureMix}
-                discovery={discoveryMix}
+                capture={form.captureMix}
+                discovery={form.discoveryMix}
               />
               <MixShiftCard
-                title={`Primary Scenario (${shiftA}%)`}
+                title={`Primary Scenario (${form.shiftA}%)`}
                 capture={A.modeledCaptureMix}
                 discovery={A.modeledDiscoveryMix}
               />
               <MixShiftCard
-                title={`Alternative Scenario (${shiftB}%)`}
+                title={`Alternative Scenario (${form.shiftB}%)`}
                 capture={B.modeledCaptureMix}
                 discovery={B.modeledDiscoveryMix}
               />
@@ -430,7 +528,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             }}
           >
             <Card>
-              <h3 style={{ marginTop: 0 }}>Primary Scenario ({shiftA}%)</h3>
+              <h3 style={{ marginTop: 0 }}>Primary Scenario ({form.shiftA}%)</h3>
               <p>CAC: {formatMoney(A.newCAC)}</p>
               <p>ROAS: {formatROAS(A.roas)}</p>
               <p>LTV:CAC: {formatRatio(A.ltvToCac)}</p>
@@ -438,7 +536,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             </Card>
 
             <Card>
-              <h3 style={{ marginTop: 0 }}>Alternative Scenario ({shiftB}%)</h3>
+              <h3 style={{ marginTop: 0 }}>Alternative Scenario ({form.shiftB}%)</h3>
               <p>CAC: {formatMoney(B.newCAC)}</p>
               <p>ROAS: {formatROAS(B.roas)}</p>
               <p>LTV:CAC: {formatRatio(B.ltvToCac)}</p>
@@ -450,14 +548,14 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             <h3 style={{ marginTop: 0 }}>Scenario Comparison</h3>
             <ComparisonTable
               primary={{
-                shift: shiftA,
+                shift: form.shiftA,
                 cac: formatMoney(A.newCAC),
                 roas: formatROAS(A.roas),
                 ltvToCac: formatRatio(A.ltvToCac),
                 lift: formatMoney(A.lift),
               }}
               alternative={{
-                shift: shiftB,
+                shift: form.shiftB,
                 cac: formatMoney(B.newCAC),
                 roas: formatROAS(B.roas),
                 ltvToCac: formatRatio(B.ltvToCac),
@@ -476,21 +574,29 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
           >
             <Card>
               <h3 style={{ marginTop: 0 }}>Modeled Revenue Lift</h3>
-              <SimpleBar label={`Primary (${shiftA}%)`} value={A.lift} max={maxLift} />
-              <SimpleBar label={`Alternative (${shiftB}%)`} value={B.lift} max={maxLift} />
+              <SimpleBar label={`Primary (${form.shiftA}%)`} value={A.lift} max={maxLift} />
+              <SimpleBar
+                label={`Alternative (${form.shiftB}%)`}
+                value={B.lift}
+                max={maxLift}
+              />
             </Card>
 
             <Card>
               <h3 style={{ marginTop: 0 }}>Modeled ROAS</h3>
-              <SimpleBar label={`Primary (${shiftA}%)`} value={A.roas} max={maxRoas} />
-              <SimpleBar label={`Alternative (${shiftB}%)`} value={B.roas} max={maxRoas} />
+              <SimpleBar label={`Primary (${form.shiftA}%)`} value={A.roas} max={maxRoas} />
+              <SimpleBar
+                label={`Alternative (${form.shiftB}%)`}
+                value={B.roas}
+                max={maxRoas}
+              />
             </Card>
           </div>
 
           <Card style={{ marginTop: 20 }}>
             <h3 style={{ marginTop: 0 }}>Decision View</h3>
             <p>
-              {shiftA}% shift → {formatMoney(A.lift)} | {shiftB}% shift →{" "}
+              {form.shiftA}% shift → {formatMoney(A.lift)} | {form.shiftB}% shift →{" "}
               {formatMoney(B.lift)}
             </p>
           </Card>
@@ -526,10 +632,10 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
                 CAC Creep Diagnostic
               </h2>
               <div style={{ marginTop: 8, color: "#475569" }}>
-                {clientName} • {accountName}
+                {safeClientName} • {safeAccountName}
               </div>
               <div style={{ marginTop: 4, color: "#64748b" }}>
-                {benchmarkLabels[benchmarkMode]}
+                {benchmarkLabels[form.benchmarkMode]}
               </div>
             </div>
 
@@ -546,7 +652,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
                 Current Mix
               </div>
               <div style={{ marginTop: 8, fontSize: 18, fontWeight: 700 }}>
-                {captureMix}% / {discoveryMix}%
+                {form.captureMix}% / {form.discoveryMix}%
               </div>
               <div style={{ marginTop: 4, fontSize: 13, color: "#475569" }}>
                 Capture / Discovery
@@ -570,7 +676,7 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             <MetricCard
               label="Primary CAC"
               value={formatMoney(A.newCAC)}
-              subtext={`${shiftA}% shift`}
+              subtext={`${form.shiftA}% shift`}
             />
             <MetricCard
               label="Primary ROAS"
@@ -594,16 +700,16 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
           >
             <MixShiftCard
               title="Current Mix"
-              capture={captureMix}
-              discovery={discoveryMix}
+              capture={form.captureMix}
+              discovery={form.discoveryMix}
             />
             <MixShiftCard
-              title={`Primary Scenario (${shiftA}%)`}
+              title={`Primary Scenario (${form.shiftA}%)`}
               capture={A.modeledCaptureMix}
               discovery={A.modeledDiscoveryMix}
             />
             <MixShiftCard
-              title={`Alternative Scenario (${shiftB}%)`}
+              title={`Alternative Scenario (${form.shiftB}%)`}
               capture={B.modeledCaptureMix}
               discovery={B.modeledDiscoveryMix}
             />
@@ -627,9 +733,9 @@ Run a controlled ${shiftA}% to ${shiftB}% reallocation test, hold spend flat, an
             >
               <h3 style={{ marginTop: 0 }}>Recommendation</h3>
               <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#334155" }}>
-                Run a controlled {shiftA}% to {shiftB}% reallocation from capture into discovery,
-                hold spend flat, and inspect CAC, blended efficiency, and modeled revenue lift
-                before scaling.
+                Run a controlled {form.shiftA}% to {form.shiftB}% reallocation from capture into
+                discovery, hold spend flat, and inspect CAC, blended efficiency, and modeled
+                revenue lift before scaling.
               </p>
             </div>
 
