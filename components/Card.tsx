@@ -5,12 +5,15 @@ import React from "react";
 export default function Card({
   children,
   style,
+  className,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  className?: string;
 }) {
   return (
     <div
+      className={className}
       style={{
         background: "#fff",
         borderRadius: 16,
