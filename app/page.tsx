@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Card from "@/components/Card";
-import { calculateScenario } from "@/lib/calculations";
-import { formatMoney, formatROAS, formatRatio } from "@/lib/format";
+import Card from "../components/Card";
+import { calculateScenario } from "../lib/calculations";
+import { formatMoney, formatROAS, formatRatio } from "../lib/format";
 
 export default function Page() {
   const [spend, setSpend] = useState(300000);
@@ -45,14 +45,24 @@ export default function Page() {
   );
 
   return (
-    <div style={{ padding: 30, maxWidth: 1100, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 32 }}>CAC Creep Calculator (V2)</h1>
+    <div
+      style={{
+        padding: 30,
+        maxWidth: 1100,
+        margin: "0 auto",
+        background: "#f8fafc",
+        minHeight: "100vh",
+      }}
+    >
+      <h1 style={{ fontSize: 32, marginBottom: 20 }}>
+        CAC Creep Calculator (V2)
+      </h1>
 
       {/* INPUTS */}
       <Card>
         <h3>Inputs</h3>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <input value={spend} onChange={(e) => setSpend(Number(e.target.value))} />
           <input value={conversions} onChange={(e) => setConversions(Number(e.target.value))} />
 
@@ -65,46 +75,63 @@ export default function Page() {
 
         <div style={{ marginTop: 12 }}>
           <label>Primary Shift (%)</label>
-          <input type="number" value={shiftA} onChange={(e) => setShiftA(Number(e.target.value))} />
+          <input
+            type="number"
+            value={shiftA}
+            onChange={(e) => setShiftA(Number(e.target.value))}
+          />
         </div>
 
         <div>
           <label>Alternative Shift (%)</label>
-          <input type="number" value={shiftB} onChange={(e) => setShiftB(Number(e.target.value))} />
+          <input
+            type="number"
+            value={shiftB}
+            onChange={(e) => setShiftB(Number(e.target.value))}
+          />
         </div>
       </Card>
 
-      {/* CURRENT */}
+      {/* CURRENT STATE */}
       <Card style={{ marginTop: 20 }}>
         <h3>Current System</h3>
-        <p>CAC: {formatMoney(A.currentCAC)} → {formatMoney(A.newCAC)}</p>
+        <p>
+          CAC: {formatMoney(A.priorCAC)} → {formatMoney(A.currentCAC)}
+        </p>
       </Card>
 
       {/* SCENARIOS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 20 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+          marginTop: 20,
+        }}
+      >
         <Card>
-          <h3>Primary ({shiftA}%)</h3>
+          <h3>Primary Scenario ({shiftA}%)</h3>
           <p>CAC: {formatMoney(A.newCAC)}</p>
           <p>ROAS: {formatROAS(A.roas)}</p>
           <p>LTV:CAC: {formatRatio(A.ltvToCac)}</p>
-          <p>Lift: {formatMoney(A.lift)}</p>
+          <p>Modeled lift: {formatMoney(A.lift)}</p>
         </Card>
 
         <Card>
-          <h3>Alternative ({shiftB}%)</h3>
+          <h3>Alternative Scenario ({shiftB}%)</h3>
           <p>CAC: {formatMoney(B.newCAC)}</p>
           <p>ROAS: {formatROAS(B.roas)}</p>
           <p>LTV:CAC: {formatRatio(B.ltvToCac)}</p>
-          <p>Lift: {formatMoney(B.lift)}</p>
+          <p>Modeled lift: {formatMoney(B.lift)}</p>
         </Card>
       </div>
 
-      {/* COMPARISON */}
+      {/* DECISION VIEW */}
       <Card style={{ marginTop: 20 }}>
         <h3>Decision View</h3>
         <p>
-          {shiftA}% shift → {formatMoney(A.lift)} lift | {shiftB}% shift →{" "}
-          {formatMoney(B.lift)} lift
+          {shiftA}% shift → {formatMoney(A.lift)} | {shiftB}% shift →{" "}
+          {formatMoney(B.lift)}
         </p>
       </Card>
 
@@ -112,9 +139,10 @@ export default function Page() {
       <Card style={{ marginTop: 20 }}>
         <h3>Rep Talk Track</h3>
         <p>
-          CAC moved from {formatMoney(A.priorCAC)} to {formatMoney(A.currentCAC)}.
-          A {shiftA}-{shiftB}% reallocation could generate {formatMoney(A.lift)}–
-          {formatMoney(B.lift)} in incremental revenue while improving efficiency.
+          CAC has moved from {formatMoney(A.priorCAC)} to{" "}
+          {formatMoney(A.currentCAC)}. A controlled {shiftA}-{shiftB}% reallocation
+          could generate {formatMoney(A.lift)}–{formatMoney(B.lift)} in incremental
+          revenue while improving blended efficiency.
         </p>
       </Card>
     </div>
