@@ -36,7 +36,7 @@ export default function WorkflowHeader() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
         gap: 14,
         marginBottom: 20,
       }}
@@ -47,14 +47,14 @@ export default function WorkflowHeader() {
           style={{
             background: "#ffffff",
             border: "1px solid #e2e8f0",
-            borderRadius: 16,
+            borderRadius: 18,
             padding: 16,
           }}
         >
           <div
             style={{
-              width: 28,
-              height: 28,
+              width: 30,
+              height: 30,
               borderRadius: 999,
               background: "#0f172a",
               color: "#ffffff",
@@ -62,20 +62,14 @@ export default function WorkflowHeader() {
               alignItems: "center",
               justifyContent: "center",
               fontSize: 13,
-              fontWeight: 700,
+              fontWeight: 800,
               marginBottom: 10,
             }}
           >
             {step.number}
           </div>
 
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              color: "#0f172a",
-            }}
-          >
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
             {step.title}
           </div>
 
