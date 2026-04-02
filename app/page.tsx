@@ -94,6 +94,7 @@ export default function Page() {
 
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedClient, setCopiedClient] = useState(false);
+  const [copiedPrompts, setCopiedPrompts] = useState(false);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -180,6 +181,12 @@ export default function Page() {
   const reframe = `The issue may not be whether individual lower-funnel channels are still working. It may be that the portfolio is over-indexed on capture, which can keep last-click metrics looking healthy while blended CAC becomes less efficient.`;
 
   const nextStep = `A practical next step would be a controlled ${recommendedShift}% reallocation from capture into discovery, holding spend flat and measuring CAC, blended efficiency, and modeled revenue lift before deciding whether to scale.`;
+
+  const promptsText = `Opener: ${opener}
+
+Reframe: ${reframe}
+
+Next step: ${nextStep}`;
 
   const strongAnswer = `What a strong rep answer sounds like: “Your lower-funnel channels may still be working, but the portfolio is currently ${form.captureMix}% weighted toward capture, which can hide CAC creep as spend scales. The goal here isn’t to disrupt what’s already working. It’s to test whether a controlled ${recommendedShift}% reallocation can improve blended efficiency and create more durable growth.”`;
 
@@ -305,6 +312,12 @@ Recommended next step
     setTimeout(() => setCopiedClient(false), 1500);
   }
 
+  async function handleCopyPrompts() {
+    await navigator.clipboard.writeText(promptsText);
+    setCopiedPrompts(true);
+    setTimeout(() => setCopiedPrompts(false), 1500);
+  }
+
   function handlePrintBrief() {
     window.print();
   }
@@ -316,9 +329,10 @@ Recommended next step
     <div
       style={{
         padding: 30,
-        maxWidth: 1100,
+        maxWidth: 1180,
         margin: "0 auto",
-        background: "#f8fafc",
+        background:
+          "linear-gradient(180deg, #f8fafc 0%, #f8fafc 45%, #f1f5f9 100%)",
         minHeight: "100vh",
       }}
     >
@@ -356,18 +370,57 @@ Recommended next step
         input, select {
           width: 100%;
           padding: 10px;
-          border-radius: 10px;
+          border-radius: 12px;
           border: 1px solid #cbd5e1;
           background: white;
           box-sizing: border-box;
+          font-size: 14px;
         }
       `}</style>
 
       <div className="print-page">
         <div className="no-print">
-          <h1 style={{ fontSize: 32, marginBottom: 20 }}>
-            CAC Creep Calculator (V12)
-          </h1>
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 12px",
+                borderRadius: 999,
+                background: "#e2e8f0",
+                color: "#334155",
+                fontSize: 12,
+                fontWeight: 700,
+                marginBottom: 10,
+              }}
+            >
+              Revenue Architecture Tools
+            </div>
+            <h1
+              style={{
+                fontSize: 40,
+                margin: 0,
+                color: "#0f172a",
+                letterSpacing: -0.8,
+              }}
+            >
+              CAC Creep Calculator
+            </h1>
+            <p
+              style={{
+                marginTop: 10,
+                marginBottom: 0,
+                color: "#475569",
+                fontSize: 16,
+                lineHeight: 1.7,
+                maxWidth: 860,
+              }}
+            >
+              Diagnose portfolio pressure, model mix-shift scenarios, recommend the strongest path,
+              and export a client-ready brief.
+            </p>
+          </div>
 
           <WorkflowHeader />
 
@@ -382,7 +435,7 @@ Recommended next step
                 marginBottom: 16,
               }}
             >
-              <h3 style={{ margin: 0 }}>Inputs</h3>
+              <h3 style={{ margin: 0, fontSize: 22 }}>Inputs</h3>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <ActionButton
                   label={mode === "demo" ? "Demo Mode Active" : "Load Demo Data"}
@@ -392,10 +445,7 @@ Recommended next step
                   label={mode === "live" ? "Live Mode Active" : "Load Live Mode"}
                   onClick={loadLiveData}
                 />
-                <ActionButton
-                  label="Reset Current Mode"
-                  onClick={resetCurrentMode}
-                />
+                <ActionButton label="Reset Current Mode" onClick={resetCurrentMode} />
               </div>
             </div>
 
@@ -413,7 +463,7 @@ Recommended next step
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                 gap: 12,
                 marginBottom: 14,
               }}
@@ -458,32 +508,42 @@ Recommended next step
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+              }}
+            >
               <input
                 value={form.spend}
                 onChange={(e) => updateField("spend", Number(e.target.value))}
+                placeholder="Spend"
               />
               <input
                 value={form.conversions}
                 onChange={(e) => updateField("conversions", Number(e.target.value))}
+                placeholder="Conversions"
               />
-
               <input
                 value={form.priorSpend}
                 onChange={(e) => updateField("priorSpend", Number(e.target.value))}
+                placeholder="Prior spend"
               />
               <input
                 value={form.priorConversions}
                 onChange={(e) => updateField("priorConversions", Number(e.target.value))}
+                placeholder="Prior conversions"
               />
-
               <input
                 value={form.revPerConv}
                 onChange={(e) => updateField("revPerConv", Number(e.target.value))}
+                placeholder="Revenue per conversion"
               />
               <input
                 value={form.ltv}
                 onChange={(e) => updateField("ltv", Number(e.target.value))}
+                placeholder="LTV"
               />
             </div>
 
@@ -491,7 +551,7 @@ Recommended next step
               style={{
                 marginTop: 12,
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: 12,
               }}
             >
@@ -548,7 +608,7 @@ Recommended next step
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: 16,
               marginTop: 20,
             }}
@@ -585,20 +645,18 @@ Recommended next step
                 alignItems: "center",
               }}
             >
-              <h3 style={{ margin: 0 }}>Current System</h3>
+              <h3 style={{ margin: 0, fontSize: 22 }}>Current System</h3>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <ActionButton
-                  label={copiedSummary ? "Summary Copied" : "Copy Summary"}
-                  onClick={handleCopySummary}
-                />
+                <ActionButton label={copiedSummary ? "Summary Copied" : "Copy Summary"} onClick={handleCopySummary} />
                 <ActionButton
                   label={copiedClient ? "Client Export Copied" : "Copy Client Export"}
                   onClick={handleCopyClientExport}
                 />
                 <ActionButton
-                  label="Print Brief"
-                  onClick={handlePrintBrief}
+                  label={copiedPrompts ? "Prompts Copied" : "Copy Prompts"}
+                  onClick={handleCopyPrompts}
                 />
+                <ActionButton label="Print Brief" onClick={handlePrintBrief} kind="primary" />
               </div>
             </div>
 
@@ -625,98 +683,70 @@ Recommended next step
           </Card>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Conversation Prompts</h3>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr",
+                display: "flex",
+                justifyContent: "space-between",
                 gap: 12,
+                alignItems: "center",
+                flexWrap: "wrap",
               }}
             >
-              <div
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 14,
-                  padding: 14,
-                  background: "#f8fafc",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    color: "#64748b",
-                    marginBottom: 6,
-                  }}
-                >
-                  Opener
-                </div>
-                <div style={{ color: "#334155", lineHeight: 1.7 }}>{opener}</div>
-              </div>
+              <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: 22 }}>Conversation Prompts</h3>
+              <ActionButton
+                label={copiedPrompts ? "Prompts Copied" : "Copy Prompts"}
+                onClick={handleCopyPrompts}
+              />
+            </div>
 
-              <div
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 14,
-                  padding: 14,
-                  background: "#f8fafc",
-                }}
-              >
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12, marginTop: 12 }}>
+              {[
+                { title: "Opener", text: opener },
+                { title: "Reframe", text: reframe },
+                { title: "Next Step", text: nextStep },
+              ].map((item) => (
                 <div
+                  key={item.title}
                   style={{
-                    fontSize: 12,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    color: "#64748b",
-                    marginBottom: 6,
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 14,
+                    padding: 14,
+                    background: "#f8fafc",
                   }}
                 >
-                  Reframe
+                  <div
+                    style={{
+                      fontSize: 12,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      color: "#64748b",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {item.title}
+                  </div>
+                  <div style={{ color: "#334155", lineHeight: 1.7 }}>{item.text}</div>
                 </div>
-                <div style={{ color: "#334155", lineHeight: 1.7 }}>{reframe}</div>
-              </div>
-
-              <div
-                style={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 14,
-                  padding: 14,
-                  background: "#f8fafc",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    color: "#64748b",
-                    marginBottom: 6,
-                  }}
-                >
-                  Next Step
-                </div>
-                <div style={{ color: "#334155", lineHeight: 1.7 }}>{nextStep}</div>
-              </div>
+              ))}
             </div>
           </Card>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Rep Coaching Panel</h3>
+            <h3 style={{ marginTop: 0, fontSize: 22 }}>Rep Coaching Panel</h3>
             <RepCoachingPanel strongAnswer={strongAnswer} objections={objections} />
           </Card>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Manager Inspection Panel</h3>
+            <h3 style={{ marginTop: 0, fontSize: 22 }}>Manager Inspection Panel</h3>
             <ManagerInspectionPanel items={managerInspectionItems} />
           </Card>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Mix Shift Visual</h3>
+            <h3 style={{ marginTop: 0, fontSize: 22 }}>Mix Shift Visual</h3>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                 gap: 16,
               }}
             >
@@ -741,7 +771,7 @@ Recommended next step
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
               gap: 20,
               marginTop: 20,
             }}
@@ -763,9 +793,7 @@ Recommended next step
                   flexWrap: "wrap",
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 0 }}>
-                  Primary Scenario ({form.shiftA}%)
-                </h3>
+                <h3 style={{ marginTop: 0, marginBottom: 0 }}>Primary Scenario ({form.shiftA}%)</h3>
                 {recommendedScenario === "primary" ? (
                   <RecommendationBadge label="Recommended" />
                 ) : null}
@@ -817,7 +845,7 @@ Recommended next step
                 flexWrap: "wrap",
               }}
             >
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Scenario Comparison</h3>
+              <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: 22 }}>Scenario Comparison</h3>
               <RecommendationBadge label={recommendedLabel} />
             </div>
             <div style={{ marginTop: 8, marginBottom: 12, color: "#475569" }}>
@@ -844,29 +872,21 @@ Recommended next step
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
               gap: 20,
               marginTop: 20,
             }}
           >
             <Card>
-              <h3 style={{ marginTop: 0 }}>Modeled Revenue Lift</h3>
+              <h3 style={{ marginTop: 0, fontSize: 22 }}>Modeled Revenue Lift</h3>
               <SimpleBar label={`Primary (${form.shiftA}%)`} value={A.lift} max={maxLift} />
-              <SimpleBar
-                label={`Alternative (${form.shiftB}%)`}
-                value={B.lift}
-                max={maxLift}
-              />
+              <SimpleBar label={`Alternative (${form.shiftB}%)`} value={B.lift} max={maxLift} />
             </Card>
 
             <Card>
-              <h3 style={{ marginTop: 0 }}>Modeled ROAS</h3>
+              <h3 style={{ marginTop: 0, fontSize: 22 }}>Modeled ROAS</h3>
               <SimpleBar label={`Primary (${form.shiftA}%)`} value={A.roas} max={maxRoas} />
-              <SimpleBar
-                label={`Alternative (${form.shiftB}%)`}
-                value={B.roas}
-                max={maxRoas}
-              />
+              <SimpleBar label={`Alternative (${form.shiftB}%)`} value={B.roas} max={maxRoas} />
             </Card>
           </div>
 
@@ -880,7 +900,7 @@ Recommended next step
                 flexWrap: "wrap",
               }}
             >
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Decision View</h3>
+              <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: 22 }}>Decision View</h3>
               <RecommendationBadge label={recommendedLabel} />
             </div>
             <p style={{ marginTop: 8, color: "#475569" }}>{recommendedReason}</p>
@@ -891,7 +911,7 @@ Recommended next step
           </Card>
 
           <Card style={{ marginTop: 20 }}>
-            <h3 style={{ marginTop: 0 }}>Rep Talk Track</h3>
+            <h3 style={{ marginTop: 0, fontSize: 22 }}>Rep Talk Track</h3>
             <p>{repSummary}</p>
           </Card>
         </div>
@@ -1022,10 +1042,9 @@ Recommended next step
             >
               <h3 style={{ marginTop: 0 }}>Recommendation</h3>
               <p style={{ marginBottom: 10, lineHeight: 1.7, color: "#334155" }}>
-                Run a controlled{" "}
-                {recommendedScenario === "primary" ? form.shiftA : form.shiftB}% reallocation from
-                capture into discovery, hold spend flat, and inspect CAC, blended efficiency, and
-                modeled revenue lift before scaling.
+                Run a controlled {recommendedShift}% reallocation from capture into discovery, hold
+                spend flat, and inspect CAC, blended efficiency, and modeled revenue lift before
+                scaling.
               </p>
               <p style={{ marginBottom: 0, lineHeight: 1.7, color: "#475569" }}>
                 {recommendedReason}
