@@ -27,7 +27,7 @@ export default function ManagerInspectionPanel({
           style={{
             background: "#ffffff",
             border: "1px solid #e2e8f0",
-            borderRadius: 16,
+            borderRadius: 18,
             padding: 16,
           }}
         >
@@ -46,7 +46,7 @@ export default function ManagerInspectionPanel({
           <div
             style={{
               fontSize: 14,
-              fontWeight: 700,
+              fontWeight: 800,
               color: "#0f172a",
               marginBottom: 8,
             }}
@@ -60,7 +60,7 @@ export default function ManagerInspectionPanel({
           <div
             style={{
               fontSize: 14,
-              fontWeight: 700,
+              fontWeight: 800,
               color: "#0f172a",
               marginBottom: 8,
             }}
